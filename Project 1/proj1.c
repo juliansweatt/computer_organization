@@ -9,12 +9,14 @@
 
 #define MAX_LABELS 25
 #define MAX_COMMANDS 100
+#define DEBUG_MODE 1
 
 // Declarations 
 typedef struct
 {
     char** args;
     int address;
+    int instruction;
 } Command;
 
 typedef struct 
@@ -22,6 +24,12 @@ typedef struct
     char* name;
     int address;
 } Label;
+
+typedef struct
+{
+    Command** commandList;
+    Label** labelList;
+} ParseTable;
 
 void destroyStringArray(char** arr);
 Command* CommandConstructor(char** args, int address);
@@ -34,6 +42,8 @@ Label** InitLabelList();
 void DestroyLabelList(Label** labelList);
 void pushLabelList(Label** labelList, Label* newLabel);
 void printLabelList(Label** labelList);
+ParseTable* ParseTableConstructor(Command** cmdList, Label** labList);
+void DestroyParseTable(ParseTable* pt);
 char** initStringsArray(int size);
 void destroyStringArray(char** arr);
 void pushArgsArray(char** args, char* newArg);
@@ -41,7 +51,11 @@ void printCommandsArray(Command** cmdList);
 int getSizeOfCommandsArray(Command** cmdList);
 int stringContains(char* str, char target);
 char* removeRangeFromString(char* str, int indexLow, int indexHigh);
-void parse();
+int registerToDecimal(char* regString);
+ParseTable* parse();
+char getType(char* cmd);
+int getOpcode(char* cmd);
+void printMachineCode(ParseTable* pt);
 
 // ---------- Command Functions ---------- //
 Command* CommandConstructor(char** args, int address)
@@ -49,6 +63,7 @@ Command* CommandConstructor(char** args, int address)
     Command* newCommand = malloc(sizeof(Command));
     newCommand->args = args;
     newCommand->address = address;
+    newCommand->instruction = 0;
     return newCommand;
 }
 
@@ -86,7 +101,7 @@ void pushCmdList(Command** cmdList, Command* newCmd)
     }
     else
     {
-        printf("[ERROR]: Expected a maximum of %d commands. Unable to add another command.\n", MAX_COMMANDS);
+        printf("[ERROR]: Expected a maximum of %d commands. Unable to add another command `%s`.\n", MAX_COMMANDS, newCmd);
     }
 }
 
@@ -95,7 +110,7 @@ int getNextAddress(Command** cmdList)
     int address = 0;
     if(getSizeOfCommandsArray(cmdList) > 0)
     {
-        address = cmdList[getSizeOfCommandsArray(cmdList)-1]->address + 1;
+        address = cmdList[getSizeOfCommandsArray(cmdList)-1]->address + 4;
     }
     return address;
 }
@@ -159,6 +174,22 @@ void printLabelList(Label** labelList)
 }
 
 // ---------- Parse Functions ---------- //
+ParseTable* ParseTableConstructor(Command** cmdList, Label** labList)
+{
+    //Label* newLabel = malloc(sizeof(Label));
+    ParseTable* newPT = malloc(sizeof(ParseTable));
+    newPT->commandList = cmdList;
+    newPT->labelList = labList;
+    return newPT;
+}
+
+void DestroyParseTable(ParseTable* pt)
+{
+    DestroyCommandList(pt->commandList);
+    DestroyLabelList(pt->labelList);
+    free(pt);
+}
+
 char** initStringsArray(int size)
 {
     char** newArray = calloc(size+1,sizeof(char*));
@@ -188,18 +219,17 @@ void pushArgsArray(char** args, char* newArg)
 
     if(i < 4)
     {
-        //printf("PUSHING:%s\n", newArg); //debug
         args[i] = calloc(strlen(newArg)+1, sizeof(char));
         strcpy(args[i], newArg);
         args[i+1] = NULL;
     }
     else
     {
-        printf("[ERROR]: Expected a maximum of %d args. Unable to add command.\n", 4);
+        printf("[ERROR]: Expected a maximum of %d args. Unable to add argument `%s` to `%s` command.\n", 4, newArg, args[0]);
     }
 }
 
-void printCommandsArray(Command** cmdList)
+void printCommandsArray(Command** cmdList) // debug
 {
     int i = 0;
     while(cmdList[i]!=NULL && i < MAX_COMMANDS)
@@ -207,7 +237,15 @@ void printCommandsArray(Command** cmdList)
         int j = 0;
         while(cmdList[i]->args[j] != NULL)
         {
-            printf("%s ", cmdList[i]->args[j]);
+            if(j == 0)
+            {
+                printf("%s(%c - %d)  ", cmdList[i]->args[j], getType(cmdList[i]->args[j]),  getOpcode(cmdList[i]->args[j]));
+            }
+            else
+            {
+                printf("%s(%d)  ", cmdList[i]->args[j], registerToDecimal(cmdList[i]->args[j]));
+            }
+            
             j++;
         }
         printf(" %d\n",cmdList[i]->address);
@@ -260,7 +298,7 @@ char* removeRangeFromString(char* str, int indexLow, int indexHigh)
     return str;
 }
 
-void parse()
+ParseTable* parse()
 {
     Label** labelList = InitLabelList();
     Command** commandList = InitCommandList();
@@ -283,7 +321,10 @@ void parse()
             {
                 directive='d';
             }
-            printf("DIR:%s\n",temp); // debug
+            if(DEBUG_MODE)
+            {
+                printf("Directive Swapped:%s\n",temp); // debug
+            }
         }
         else
         {
@@ -312,25 +353,61 @@ void parse()
                     pushArgsArray(args, cmd);
                     for(i = 0; i < strlen(params); i ++)
                     {
-                        if(params[i]=='$')
+                        if(params[i]=='$') // @todo Issues here with -$0
                         {
-                            argsBuffer[0] = params[i];
-                            argsBuffer[1] = params[i+1];
-                            argsBuffer[2] = params[i+2];
-                            argsBuffer[3] = '\0';
+                            if(params[i+1]=='0')
+                            {
+                                argsBuffer[0] = params[i];
+                                argsBuffer[1] = params[i+1];
+                                argsBuffer[2] = '\0';
 
-                            pushArgsArray(args,argsBuffer);
-                            i = i+2;
+                                pushArgsArray(args,argsBuffer);
+                            }
+                            else
+                            {
+                                argsBuffer[0] = params[i];
+                                argsBuffer[1] = params[i+1];
+                                argsBuffer[2] = params[i+2];
+                                argsBuffer[3] = '\0';
+
+                                pushArgsArray(args,argsBuffer);
+                                i = i+1;
+                            }
                         }
                         else if(params[i]==',')
                         {
-                            argsBuffer[0] = params[i+1];
-                            argsBuffer[1] = params[i+2];
-                            argsBuffer[2] = params[i+3];
-                            argsBuffer[3] = '\0';
+                            if(params[i+1]=='$')
+                            {
+                                if(params[i+2]=='0')
+                                {
+                                    argsBuffer[0] = params[i+1];
+                                    argsBuffer[1] = params[i+2];
+                                    argsBuffer[2] = '\0';
 
-                            pushArgsArray(args,argsBuffer);
-                            i = i+2;
+                                    pushArgsArray(args,argsBuffer);
+                                }
+                                else
+                                {
+                                    argsBuffer[0] = params[i+1];
+                                    argsBuffer[1] = params[i+2];
+                                    argsBuffer[2] = params[i+3];
+                                    argsBuffer[3] = '\0';
+
+                                    pushArgsArray(args,argsBuffer);
+                                    i = i+1;
+                                }
+                            }
+                            else
+                            {
+                                argsBuffer[0] = params[i+1];
+                                argsBuffer[1] = params[i+2];
+                                argsBuffer[2] = params[i+3];
+                                argsBuffer[3] = '\0';
+
+                                pushArgsArray(args,argsBuffer);
+                                i = i+1;
+                            }
+                            
                         }
                     }
 
@@ -344,11 +421,148 @@ void parse()
         }
     }
 
-    printLabelList(labelList); //debug
-    printCommandsArray(commandList); // debug
+    return ParseTableConstructor(commandList, labelList);
+}
 
-    DestroyLabelList(labelList);
-    DestroyCommandList(commandList);
+// ---------- Translation Utilities ---------- //
+int registerToDecimal(char* regString)
+{
+    // $t0-$t7 -> 8-15
+    // $s0-$s7 -> 16-23
+    // $0 -> 0
+    
+    // Temp. Registers ($t)
+    if(strcmp(regString, "$t0\0") == 0)
+    {
+        return 8;
+    }
+    else if(strcmp(regString, "$t1\0")==0)
+    {
+        return 9;
+    }
+    else if(strcmp(regString, "$t2\0")==0)
+    {
+        return 10;
+    }
+    else if(strcmp(regString, "$t3\0")==0)
+    {
+        return 11;
+    }
+    else if(strcmp(regString, "$t4\0")==0)
+    {
+        return 12;
+    }
+    else if(strcmp(regString, "$t5\0")==0)
+    {
+        return 13;
+    }
+    else if(strcmp(regString, "$t6\0")==0)
+    {
+        return 14;
+    }
+    else if(strcmp(regString, "$t7\0")==0)
+    {
+        return 15;
+    }
+    // Save Registers ($s)
+    else if(strcmp(regString, "$s0\0")==0)
+    {
+        return 16;
+    }
+    else if(strcmp(regString, "$s1\0")==0)
+    {
+        return 17;
+    }
+    else if(strcmp(regString, "$s2\0")==0)
+    {
+        return 18;
+    }
+    else if(strcmp(regString, "$s3\0")==0)
+    {
+        return 19;
+    }
+    else if(strcmp(regString, "$s4\0")==0)
+    {
+        return 20;
+    }
+    else if(strcmp(regString, "$s5\0")==0)
+    {
+        return 21;
+    }
+    else if(strcmp(regString, "$s6\0")==0)
+    {
+        return 22;
+    }
+    else if(strcmp(regString, "$s7\0")==0)
+    {
+        return 23;
+    }
+    // Null Register ($0)
+    else if(strcmp(regString, "$0\0")==0)
+    {
+        return 0;
+    }
+    // Others (Immediate)
+    else
+    {
+        return atoi(regString);
+    }
+}
+
+char getType(char* cmd)
+{
+    if( (strcmp(cmd, "add\0")==0) || (strcmp(cmd, "nor\0")==0) || (strcmp(cmd, "sll\0")==0) )
+        return 'r';
+    else if( (strcmp(cmd, "addi\0")==0) || (strcmp(cmd, "ori\0")==0) || (strcmp(cmd, "lui\0")==0) || (strcmp(cmd, "sw\0")==0) || (strcmp(cmd, "lw\0")==0) || (strcmp(cmd, "bnw\0")==0) )
+        return 'i';
+    else if( (strcmp(cmd, "j\0")==0) )
+        return 'j';
+    else
+    {
+        printf("[ERROR]: `%s` is not a valid command.\n", cmd);
+        return '\0';
+    }
+}
+
+int getOpcode(char* cmd)
+{
+    if(strcmp(cmd, "add\0")==0)
+        return 32;
+    else if(strcmp(cmd, "addi\0")==0)
+        return 8;
+    else if(strcmp(cmd, "nor\0")==0)
+        return 39;
+    else if(strcmp(cmd, "ori\0")==0)
+        return 13;
+    else if(strcmp(cmd, "sll\0")==0)
+        return 0;
+    else if(strcmp(cmd, "lui\0")==0)
+        return 15;
+    else if(strcmp(cmd, "sw\0")==0)
+        return 43;
+    else if(strcmp(cmd, "lw\0")==0)
+        return 35;
+    else if(strcmp(cmd, "bne\0")==0)
+        return 5;
+    else if(strcmp(cmd, "j\0")==0)
+        return 2;
+    else
+    {
+        printf("[ERROR] Unable to get opcode for `%s`. Invalid command.\n", cmd);
+        return 0;
+    }
+    
+}
+
+// ---------- Machine Code ---------- //
+void printMachineCode(ParseTable* pt)
+{
+    int i = 0;
+    while(pt->commandList[i]!=NULL && i < MAX_COMMANDS)
+    {
+        printf("0x%08X: \n",pt->commandList[i]->address);
+        i++;
+    }
 }
 
 /**
@@ -356,6 +570,19 @@ void parse()
  */
 int main()
 {
-    parse();
+    // Pass 1 (Parse Table)
+    ParseTable* pt = parse();
+
+    // Debugging
+    if(DEBUG_MODE)
+    {
+        printLabelList(pt->labelList); //debug
+        printCommandsArray(pt->commandList); // debug
+    }
+
+    printMachineCode(pt);
+
+    // Destructor
+    DestroyParseTable(pt);
     return(0);
 } 
