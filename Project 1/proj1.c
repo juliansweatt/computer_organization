@@ -57,6 +57,8 @@ char getType(char* cmd);
 int getOpcode(char* cmd);
 void printMachineCode(ParseTable* pt);
 
+void evaluate(ParseTable* pt);
+
 // ---------- Command Functions ---------- //
 Command* CommandConstructor(char** args, int address)
 {
@@ -347,70 +349,28 @@ ParseTable* parse()
                 char params[50];
                 if(sscanf(lineBuffer,"\t%s\t%s", cmd, params) == 2)
                 {
-                    int i;
                     char argsBuffer[5];
                     char** args = initStringsArray(4);
                     pushArgsArray(args, cmd);
-                    for(i = 0; i < strlen(params); i ++)
+
+                    int i;
+                    int prevI = 0;
+                    for(i = 0; i < strlen(params)+1 ; i++)
                     {
-                        if(params[i]=='$') // @todo Issues here with -$0
+                        if(params[i]==',' || params[i]=='\0' || params[i]=='\n')
                         {
-                            if(params[i+1]=='0')
+                            int j = 0;
+                            while(prevI != i)
                             {
-                                argsBuffer[0] = params[i];
-                                argsBuffer[1] = params[i+1];
-                                argsBuffer[2] = '\0';
-
-                                pushArgsArray(args,argsBuffer);
+                                argsBuffer[j] = params[prevI];
+                                prevI++;
+                                j++;
                             }
-                            else
-                            {
-                                argsBuffer[0] = params[i];
-                                argsBuffer[1] = params[i+1];
-                                argsBuffer[2] = params[i+2];
-                                argsBuffer[3] = '\0';
-
-                                pushArgsArray(args,argsBuffer);
-                                i = i+1;
-                            }
-                        }
-                        else if(params[i]==',')
-                        {
-                            if(params[i+1]=='$')
-                            {
-                                if(params[i+2]=='0')
-                                {
-                                    argsBuffer[0] = params[i+1];
-                                    argsBuffer[1] = params[i+2];
-                                    argsBuffer[2] = '\0';
-
-                                    pushArgsArray(args,argsBuffer);
-                                }
-                                else
-                                {
-                                    argsBuffer[0] = params[i+1];
-                                    argsBuffer[1] = params[i+2];
-                                    argsBuffer[2] = params[i+3];
-                                    argsBuffer[3] = '\0';
-
-                                    pushArgsArray(args,argsBuffer);
-                                    i = i+1;
-                                }
-                            }
-                            else
-                            {
-                                argsBuffer[0] = params[i+1];
-                                argsBuffer[1] = params[i+2];
-                                argsBuffer[2] = params[i+3];
-                                argsBuffer[3] = '\0';
-
-                                pushArgsArray(args,argsBuffer);
-                                i = i+1;
-                            }
-                            
+                            argsBuffer[j] = '\0';
+                            prevI++;
+                            pushArgsArray(args, argsBuffer);
                         }
                     }
-
                     pushCmdList(commandList, CommandConstructor(args,getNextAddress(commandList)));
                 }
                 else
@@ -513,10 +473,12 @@ char getType(char* cmd)
 {
     if( (strcmp(cmd, "add\0")==0) || (strcmp(cmd, "nor\0")==0) || (strcmp(cmd, "sll\0")==0) )
         return 'r';
-    else if( (strcmp(cmd, "addi\0")==0) || (strcmp(cmd, "ori\0")==0) || (strcmp(cmd, "lui\0")==0) || (strcmp(cmd, "sw\0")==0) || (strcmp(cmd, "lw\0")==0) || (strcmp(cmd, "bnw\0")==0) )
+    else if( (strcmp(cmd, "addi\0")==0) || (strcmp(cmd, "ori\0")==0) || (strcmp(cmd, "lui\0")==0) || (strcmp(cmd, "sw\0")==0) || (strcmp(cmd, "lw\0")==0) || (strcmp(cmd, "bnw\0")==0) || (strcmp(cmd, "beq\0")==0) )
         return 'i';
     else if( (strcmp(cmd, "j\0")==0) )
         return 'j';
+    else if(strcmp(cmd, "j\0")==0)
+        return '\0';
     else
     {
         printf("[ERROR]: `%s` is not a valid command.\n", cmd);
@@ -542,6 +504,8 @@ int getOpcode(char* cmd)
         return 43;
     else if(strcmp(cmd, "lw\0")==0)
         return 35;
+    else if(strcmp(cmd, "beq\0")==0)
+        return 4;
     else if(strcmp(cmd, "bne\0")==0)
         return 5;
     else if(strcmp(cmd, "j\0")==0)
@@ -554,13 +518,32 @@ int getOpcode(char* cmd)
     
 }
 
+//////// DEBUG CODE PROVIDED BY https://www.geeksforgeeks.org/binary-representation-of-a-given-number/
+void bin(unsigned n) 
+{ 
+    unsigned i; 
+    for (i = 1 << 31; i > 0; i = i / 2) 
+        (n & i)? printf("1"): printf("0"); 
+} 
+
 // ---------- Machine Code ---------- //
 void printMachineCode(ParseTable* pt)
 {
     int i = 0;
     while(pt->commandList[i]!=NULL && i < MAX_COMMANDS)
     {
-        printf("0x%08X: \n",pt->commandList[i]->address);
+        if(DEBUG_MODE)
+        {
+            // @NOTICE Convert to binary not built in to it. May need to do some stuff to see it.
+            //@todo Next: Get the opcode and shift it to the left-most bits
+            printf("0x%08X: 0x%08X ", pt->commandList[i]->address, pt->commandList[i]->instruction);
+            bin(pt->commandList[i]->instruction);
+            printf("\n");
+        }
+        else
+        {
+            printf("0x%08X: 0x%08X\n", pt->commandList[i]->address, pt->commandList[i]->instruction);
+        }
         i++;
     }
 }
@@ -580,9 +563,24 @@ int main()
         printCommandsArray(pt->commandList); // debug
     }
 
+    evaluate(pt);
+
     printMachineCode(pt);
 
     // Destructor
     DestroyParseTable(pt);
     return(0);
 } 
+
+// ---------- Evaluate and Resolve Instructions ---------- //
+void evaluate(ParseTable* pt)
+{
+    // Resolve Opcodes
+    int i = 0;
+    while(pt->commandList[i]!=NULL)
+    {
+        pt->commandList[i]->instruction = getOpcode(pt->commandList[i]->args[0]);
+        pt->commandList[i]->instruction = pt->commandList[i]->instruction << 26;
+        i++;
+    }
+}
