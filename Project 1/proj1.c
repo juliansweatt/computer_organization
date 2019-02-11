@@ -349,29 +349,76 @@ ParseTable* parse()
                 char params[50];
                 if(sscanf(lineBuffer,"\t%s\t%s", cmd, params) == 2)
                 {
-                    char argsBuffer[5];
-                    char** args = initStringsArray(4);
-                    pushArgsArray(args, cmd);
-
-                    int i;
-                    int prevI = 0;
-                    for(i = 0; i < strlen(params)+1 ; i++)
+                    if(strcmp(cmd, "la\0")==0)
                     {
-                        if(params[i]==',' || params[i]=='\0' || params[i]=='\n')
+                        // Load Address Expand to LUI/ORI Instructions
+                        char argsBuffer[5];
+                        char** laArgs = initStringsArray(4);
+
+                        int i;
+                        int prevI = 0;
+                        for(i = 0; i < strlen(params)+1 ; i++)
                         {
-                            int j = 0;
-                            while(prevI != i)
+                            if(params[i]==',' || params[i]=='(' || params[i]==')' || params[i]=='\0' || params[i]=='\n')
                             {
-                                argsBuffer[j] = params[prevI];
+                                int j = 0;
+                                while(prevI != i)
+                                {
+                                    argsBuffer[j] = params[prevI];
+                                    prevI++;
+                                    j++;
+                                }
+                                argsBuffer[j] = '\0';
                                 prevI++;
-                                j++;
+                                pushArgsArray(laArgs, argsBuffer);
                             }
-                            argsBuffer[j] = '\0';
-                            prevI++;
-                            pushArgsArray(args, argsBuffer);
                         }
+
+                        char** luiArgs = initStringsArray(4);
+                        char** oriArgs = initStringsArray(4);
+
+                        pushArgsArray(luiArgs, "lui\0");
+                        pushArgsArray(luiArgs, "$1\0");
+                        pushArgsArray(luiArgs, laArgs[1]); // @todo: Fix label retrieval 
+
+                        pushArgsArray(oriArgs, "ori\0");
+                        pushArgsArray(oriArgs, laArgs[0]);
+                        pushArgsArray(oriArgs, "$1\0");
+                        pushArgsArray(oriArgs, laArgs[1]); // @todo: Fix ^
+
+                        pushCmdList(commandList, CommandConstructor(luiArgs,getNextAddress(commandList)));
+                        pushCmdList(commandList, CommandConstructor(oriArgs,getNextAddress(commandList)));
+                        destroyStringArray(laArgs);
                     }
-                    pushCmdList(commandList, CommandConstructor(args,getNextAddress(commandList)));
+                    else
+                    {
+                        char argsBuffer[5];
+                        char** args = initStringsArray(4);
+                        pushArgsArray(args, cmd);
+
+                        int i;
+                        int prevI = 0;
+                        for(i = 0; i < strlen(params)+1 ; i++)
+                        {
+                            if(params[i]==',' || params[i]=='(' || params[i]==')' || params[i]=='\0' || params[i]=='\n')
+                            {
+                                int j = 0;
+                                while(prevI != i)
+                                {
+                                    argsBuffer[j] = params[prevI];
+                                    prevI++;
+                                    j++;
+                                }
+                                argsBuffer[j] = '\0';
+                                prevI++;
+                                if((strlen(argsBuffer)>0))
+                                {
+                                    pushArgsArray(args, argsBuffer);
+                                }
+                            }
+                        }
+                        pushCmdList(commandList, CommandConstructor(args,getNextAddress(commandList)));
+                    }
                 }
                 else
                 {
@@ -477,8 +524,6 @@ char getType(char* cmd)
         return 'i';
     else if( (strcmp(cmd, "j\0")==0) )
         return 'j';
-    else if(strcmp(cmd, "j\0")==0)
-        return '\0';
     else
     {
         printf("[ERROR]: `%s` is not a valid command.\n", cmd);
@@ -575,12 +620,137 @@ int main()
 // ---------- Evaluate and Resolve Instructions ---------- //
 void evaluate(ParseTable* pt)
 {
-    // Resolve Opcodes
     int i = 0;
     while(pt->commandList[i]!=NULL)
     {
-        pt->commandList[i]->instruction = getOpcode(pt->commandList[i]->args[0]);
-        pt->commandList[i]->instruction = pt->commandList[i]->instruction << 26;
+        // Assign Registers from Parsed Data
+        unsigned rs = 0;
+        unsigned rt = 0;
+        unsigned rd = 0;
+        unsigned shamt = 0;
+        unsigned func = 0;
+        unsigned imm = 0;
+        unsigned address = 0;
+        unsigned opCode = 0;
+
+        opCode = getOpcode(pt->commandList[i]->args[0]);
+
+        switch(getType(pt->commandList[i]->args[0]))
+        {
+            case 'r':
+            {
+                func = opCode;
+                if(opCode == 32 || opCode == 39) // ADD/NOR
+                {
+                    rd = registerToDecimal(pt->commandList[i]->args[1]);
+                    rs = registerToDecimal(pt->commandList[i]->args[2]);
+                    rt = registerToDecimal(pt->commandList[i]->args[3]);
+                }
+                else if(opCode == 0) // SLL
+                {
+                    rd = registerToDecimal(pt->commandList[i]->args[1]);
+                    rt = registerToDecimal(pt->commandList[i]->args[2]);
+                    shamt = registerToDecimal(pt->commandList[i]->args[3]);
+                }
+            }
+            case 'i':
+            {
+                if(opCode == 8 || opCode == 13) // ADDI/ORI
+                {
+                    rt = registerToDecimal(pt->commandList[i]->args[1]);
+                    rs = registerToDecimal(pt->commandList[i]->args[2]);
+                    imm = registerToDecimal(pt->commandList[i]->args[3]);
+                }
+                else if(opCode == 15) // LUI
+                {
+                    rt = registerToDecimal(pt->commandList[i]->args[1]);
+                    imm = registerToDecimal(pt->commandList[i]->args[2]);
+                }
+                else if(opCode == 43 || opCode == 35) // SW/LW
+                {
+                    rt = registerToDecimal(pt->commandList[i]->args[1]);
+                    imm = registerToDecimal(pt->commandList[i]->args[2]);
+                    rs = registerToDecimal(pt->commandList[i]->args[3]);
+                }
+                else if(opCode == 5) // BNE
+                {
+                    rs = registerToDecimal(pt->commandList[i]->args[1]);
+                    rt = registerToDecimal(pt->commandList[i]->args[2]);
+                    // = registerToDecimal(pt->commandList[i]->args[3]); //@todo Label Handeling
+                }
+            }
+            case 'j':
+            {
+                
+            }
+        }
+
+
+        // Further Resolution
+        switch(getType(pt->commandList[i]->args[0]))
+        {
+            case 'r':
+            {
+                // R-Type Instructions
+                // Begin Instruction With 0
+                pt->commandList[i]->instruction = 0;
+
+                // RS
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 5;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | rs;
+
+                // RT
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 5;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | rt;
+
+                // RD
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 5;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | rd;
+
+                // Shamt
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 5;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | shamt;
+
+                // Function
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 6;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | func;
+                break;
+            }
+            case 'i':
+            {
+                // I-Type Instructions
+                // Begin Instruction With Opcode
+                pt->commandList[i]->instruction = opCode;
+
+                // RS
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 5;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | rs;
+
+                // RT
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 5;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | rt;
+
+                // Immediate
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 16;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | imm;
+                break;
+            }
+            case 'j':
+            {
+                // J-Type Instructions
+                // Begin Instruction With Opcode
+                pt->commandList[i]->instruction = opCode;
+
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction << 26;
+                pt->commandList[i]->instruction = pt->commandList[i]->instruction | address;
+                break;
+            }
+            default:
+            {
+                // Unknown Types
+            }
+        }
+
         i++;
     }
 }
