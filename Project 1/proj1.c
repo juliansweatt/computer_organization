@@ -7,9 +7,10 @@
 #include <string.h>
 #include <stdlib.h> 
 
-#define MAX_LABELS 25
-#define MAX_COMMANDS 100
-#define DEBUG_MODE 1
+#define MAX_LABELS 25       // Maximum amount of labels
+#define MAX_COMMANDS 100    // Maximum commands per file/input
+#define DEBUG_MODE 1        // Enable debug mode with (1)
+#define INST_SIZE 4         // Bytes Per Instruction (Default 4)
 
 // Declarations 
 typedef struct
@@ -23,6 +24,7 @@ typedef struct
 {
     char* name;
     int address;
+    int size;
 } Label;
 
 typedef struct
@@ -32,16 +34,22 @@ typedef struct
 } ParseTable;
 
 void destroyStringArray(char** arr);
+
 Command* CommandConstructor(char** args, int address);
 Command** InitCommandList();
 void DestroyCommandList(Command** cmdList);
 void pushCmdList(Command** cmdList, Command* newCmd);
-int getNextAddress(Command** cmdList);
-Label* LabelConstructor(char* name, int address);
+int getNextCmdAddress(Command** cmdList);
+
+Label* LabelConstructor(char* name, int address, int size);
 Label** InitLabelList();
 void DestroyLabelList(Label** labelList);
 void pushLabelList(Label** labelList, Label* newLabel);
 void printLabelList(Label** labelList);
+int getSizeOfLabelsArray(Label** labelList);
+int getNextLabAddress(Label** labList);
+Label* queryLabel(Label** labelList, char* query);
+
 ParseTable* ParseTableConstructor(Command** cmdList, Label** labList);
 void DestroyParseTable(ParseTable* pt);
 char** initStringsArray(int size);
@@ -49,6 +57,7 @@ void destroyStringArray(char** arr);
 void pushArgsArray(char** args, char* newArg);
 void printCommandsArray(Command** cmdList);
 int getSizeOfCommandsArray(Command** cmdList);
+
 int stringContains(char* str, char target);
 char* removeRangeFromString(char* str, int indexLow, int indexHigh);
 int registerToDecimal(char* regString);
@@ -107,7 +116,7 @@ void pushCmdList(Command** cmdList, Command* newCmd)
     }
 }
 
-int getNextAddress(Command** cmdList)
+int getNextCmdAddress(Command** cmdList)
 {
     int address = 0;
     if(getSizeOfCommandsArray(cmdList) > 0)
@@ -117,13 +126,24 @@ int getNextAddress(Command** cmdList)
     return address;
 }
 
+int getSizeOfCommandsArray(Command** cmdList)
+{
+    int i = 0;
+    while(cmdList[i]!=NULL)
+    {
+        i++;
+    }
+    return i;
+}
+
 // ---------- Label Functions ---------- //
-Label* LabelConstructor(char* name, int address)
+Label* LabelConstructor(char* name, int address, int size)
 {
     Label* newLabel = malloc(sizeof(Label));
     newLabel->name = calloc(strlen(name)+1, sizeof(char));
     strcpy(newLabel->name, name);
     newLabel->address = address;
+    newLabel->size = size;
     return newLabel;
 }
 
@@ -173,6 +193,40 @@ void printLabelList(Label** labelList)
         printf("%-15s%-15d\n",labelList[i]->name,labelList[i]->address);
         i++;
     }
+}
+
+int getSizeOfLabelsArray(Label** labelList)
+{
+    int i = 0;
+    while(labelList[i]!=NULL)
+    {
+        i++;
+    }
+    return i;
+}
+
+int getNextLabAddress(Label** labList)
+{
+    int address = 0;
+    if(getSizeOfLabelsArray(labList) > 0)
+    {
+        address = labList[getSizeOfLabelsArray(labList)-1]->address + labList[getSizeOfLabelsArray(labList)-1]->size;
+    }
+    return address;
+}
+
+Label* queryLabel(Label** labelList, char* query)
+{
+    int i = 0;
+    while(labelList[i]!=NULL)
+    {
+        if(strcmp(query, labelList[i]->name)==0)
+        {
+            return labelList[i];
+        }
+        i++;
+    }
+    return NULL;
 }
 
 // ---------- Parse Functions ---------- //
@@ -255,16 +309,6 @@ void printCommandsArray(Command** cmdList) // debug
     }
 }
 
-int getSizeOfCommandsArray(Command** cmdList)
-{
-    int i = 0;
-    while(cmdList[i]!=NULL)
-    {
-        i++;
-    }
-    return i;
-}
-
 int stringContains(char* str, char target)
 {
     int j;
@@ -307,11 +351,15 @@ ParseTable* parse()
 
     char lineBuffer[256];
     char directive;
+    unsigned dataAllocations = 0;
 
     // Iterate Standard Input
     while(fgets(lineBuffer,100, stdin))
     {
         char temp[256];
+        char tempDataDirective[256];
+        char tempSize[256];
+
         // Directives (.text, .data)
         if(sscanf(lineBuffer, "\t.%s", temp))
         {
@@ -323,6 +371,20 @@ ParseTable* parse()
             {
                 directive='d';
             }
+            else if(strcmp(temp,"text")==0)
+            {
+                // Text
+            }
+            else if(strcmp(temp,"word")==0)
+            {
+                // Word
+            }
+            else
+            {
+                printf("[ERROR] An unknown directive `%s` was encountered.\n", temp);
+            }
+            
+
             if(DEBUG_MODE)
             {
                 printf("Directive Swapped:%s\n",temp); // debug
@@ -341,7 +403,7 @@ ParseTable* parse()
                     strncpy(temp, lineBuffer, colonIndex);
                     temp[colonIndex] = '\0';
                     removeRangeFromString(lineBuffer,0,colonIndex);
-                    pushLabelList(labelList, LabelConstructor(temp, getNextAddress(commandList))); //todo: add address
+                    pushLabelList(labelList, LabelConstructor(temp, getNextCmdAddress(commandList),INST_SIZE)); //todo: add address
                 }
 
                 // Command Handling
@@ -386,8 +448,8 @@ ParseTable* parse()
                         pushArgsArray(oriArgs, "$1\0");
                         pushArgsArray(oriArgs, laArgs[1]); // @todo: Fix ^
 
-                        pushCmdList(commandList, CommandConstructor(luiArgs,getNextAddress(commandList)));
-                        pushCmdList(commandList, CommandConstructor(oriArgs,getNextAddress(commandList)));
+                        pushCmdList(commandList, CommandConstructor(luiArgs,getNextCmdAddress(commandList)));
+                        pushCmdList(commandList, CommandConstructor(oriArgs,getNextCmdAddress(commandList)));
                         destroyStringArray(laArgs);
                     }
                     else
@@ -417,12 +479,55 @@ ParseTable* parse()
                                 }
                             }
                         }
-                        pushCmdList(commandList, CommandConstructor(args,getNextAddress(commandList)));
+                        pushCmdList(commandList, CommandConstructor(args,getNextCmdAddress(commandList)));
                     }
                 }
                 else
                 {
                     printf("[ERROR]: Invalid command `%s` encountered.", cmd);
+                }
+            }
+            else if(directive == 'd')
+            {
+                // Data Directive Parsing
+
+                if(stringContains(lineBuffer,':'))
+                {
+                    // Prepare for Memory Allocation
+                    unsigned bytesDeclared = INST_SIZE;
+
+                    // Save Label & Remove From Command
+                    int colonIndex = stringContains(lineBuffer,':');
+                    strncpy(temp, lineBuffer, colonIndex);
+                    temp[colonIndex] = '\0';
+                    removeRangeFromString(lineBuffer,0,colonIndex);
+
+                    // Evaluate Data Sub-Directive
+                    if(sscanf(lineBuffer, "\t.%s %s", tempDataDirective, tempSize))
+                    {
+                        if(strcmp(tempDataDirective,"space")==0)
+                        {
+                            bytesDeclared = atoi(tempSize) * INST_SIZE;
+                        }
+                        else if(strcmp(tempDataDirective,"word")==0)
+                        {
+                            bytesDeclared = atoi(tempSize);
+                        }
+                        else
+                        {
+                            printf("[ERROR]: Invalid Sub-Directive `%s` in `.data` Directive.\n", tempDataDirective);
+                        }
+                    }
+
+                    if(dataAllocations == 0)
+                    {
+                        pushLabelList(labelList, LabelConstructor(temp, getNextCmdAddress(commandList), bytesDeclared));
+                        dataAllocations++;
+                    }
+                    else
+                    {
+                        pushLabelList(labelList, LabelConstructor(temp, getNextLabAddress(labelList), bytesDeclared)); //todo: add address
+                    }
                 }
             }
         }
@@ -508,6 +613,11 @@ int registerToDecimal(char* regString)
     else if(strcmp(regString, "$0\0")==0)
     {
         return 0;
+    }
+    // Pseudo-Instruction Register
+    else if(strcmp(regString, "$1\0")==0) // @todo May need to resolve all numeric registers
+    {
+        return 1;
     }
     // Others (Immediate)
     else
