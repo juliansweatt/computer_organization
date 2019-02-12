@@ -8,7 +8,7 @@
  *----------------------------------*/
 #define MAX_LABELS 200      // Maximum amount of labels
 #define MAX_COMMANDS 200    // Maximum commands per file/input
-#define DEBUG_MODE 0        // Enable debug mode with (1)
+#define DEBUG_MODE 1        // Enable debug mode with (1)
 #define INST_SIZE 4         // Bytes Per Instruction (Default 4)
 
 /*----------------------------------*
@@ -470,7 +470,7 @@ Label* queryLabel(Label** labelList, char* query)
     return NULL;
 }
 
-// ---------- Parse Functions ---------- //
+// ---------- Parse/General/Utility Functions ---------- //
 ParseTable* ParseTableConstructor(Command** cmdList, Label** labList)
 {
     ParseTable* newPT = malloc(sizeof(ParseTable));
@@ -839,9 +839,24 @@ int registerToDecimal(char* regString)
 
 char getType(char* cmd)
 {
-    if( (strcmp(cmd, "add\0")==0) || (strcmp(cmd, "nor\0")==0) || (strcmp(cmd, "sll\0")==0) )
+    if( 
+        (strcmp(cmd, "add\0")==0) || 
+        (strcmp(cmd, "nor\0")==0) ||
+        (strcmp(cmd, "sll\0")==0) ||
+        (strcmp(cmd, "sub\0")==0) 
+        )
         return 'r';
-    else if( (strcmp(cmd, "addi\0")==0) || (strcmp(cmd, "ori\0")==0) || (strcmp(cmd, "lui\0")==0) || (strcmp(cmd, "_ori\0")==0) || (strcmp(cmd, "_lui\0")==0) || (strcmp(cmd, "sw\0")==0) || (strcmp(cmd, "lw\0")==0) || (strcmp(cmd, "bnw\0")==0) || (strcmp(cmd, "beq\0")==0) )
+    else if(
+        (strcmp(cmd, "addi\0")==0) ||
+        (strcmp(cmd, "ori\0")==0) ||
+        (strcmp(cmd, "lui\0")==0) ||
+        (strcmp(cmd, "_ori\0")==0) ||
+        (strcmp(cmd, "_lui\0")==0) ||
+        (strcmp(cmd, "sw\0")==0) ||
+        (strcmp(cmd, "lw\0")==0) ||
+        (strcmp(cmd, "bnw\0")==0) ||
+        (strcmp(cmd, "beq\0")==0)
+        )
         return 'i';
     else if( (strcmp(cmd, "j\0")==0) )
         return 'j';
@@ -854,28 +869,30 @@ char getType(char* cmd)
 
 int getOpcode(char* cmd)
 {
-    if(strcmp(cmd, "add\0")==0)
-        return 32;
-    else if(strcmp(cmd, "addi\0")==0)
-        return 8;
-    else if(strcmp(cmd, "nor\0")==0)
-        return 39;
-    else if(strcmp(cmd, "ori\0")==0)
-        return 13;
-    else if(strcmp(cmd, "sll\0")==0)
+    if(strcmp(cmd, "sll\0")==0)
         return 0;
-    else if(strcmp(cmd, "lui\0")==0)
-        return 15;
-    else if(strcmp(cmd, "sw\0")==0)
-        return 43;
-    else if(strcmp(cmd, "lw\0")==0)
-        return 35;
+    else if(strcmp(cmd, "j\0")==0)
+        return 2;
     else if(strcmp(cmd, "beq\0")==0)
         return 4;
     else if(strcmp(cmd, "bne\0")==0)
         return 5;
-    else if(strcmp(cmd, "j\0")==0)
-        return 2;
+    else if(strcmp(cmd, "addi\0")==0)
+        return 8;
+    else if(strcmp(cmd, "ori\0")==0)
+        return 13;
+    else if(strcmp(cmd, "lui\0")==0)
+        return 15;
+    else if(strcmp(cmd, "add\0")==0)
+        return 32;
+    else if(strcmp(cmd, "sub\0")==0)
+        return 34;
+    else if(strcmp(cmd, "lw\0")==0)
+        return 35;
+    else if(strcmp(cmd, "nor\0")==0)
+        return 39;
+     else if(strcmp(cmd, "sw\0")==0)
+        return 43;
     else if(strcmp(cmd, "_lui\0")==0)
         return -15;
     else if(strcmp(cmd, "_ori\0")==0)
@@ -940,7 +957,7 @@ void evaluate(ParseTable* pt)
             case 'r':
             {
                 func = opCode;
-                if(opCode == 32 || opCode == 39) // ADD/NOR
+                if(opCode == 32 || opCode == 39 || opCode == 34) // ADD/NOR/SUB
                 {
                     rd = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
                     rs = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
