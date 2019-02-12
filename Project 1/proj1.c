@@ -905,15 +905,6 @@ int getOpcode(char* cmd)
     
 }
 
-// Binary Print Method (Debug Only)
-// Source: https://www.geeksforgeeks.org/binary-representation-of-a-given-number/
-void bin(unsigned n) 
-{ 
-    unsigned i; 
-    for (i = 1 << 31; i > 0; i = i / 2) 
-        (n & i)? printf("1"): printf("0"); 
-} 
-
 // ---------- Machine Code ---------- //
 void printMachineCode(ParseTable* pt)
 {
@@ -923,7 +914,13 @@ void printMachineCode(ParseTable* pt)
         if(DEBUG_MODE)
         {
             printf("0x%08X: 0x%08X ", pt->commandList[i]->address, pt->commandList[i]->instruction);
-            bin(pt->commandList[i]->instruction);
+
+            // Print Binary Representation (Debug Only)
+            // Reference: https://www.geeksforgeeks.org/binary-representation-of-a-given-number/
+            unsigned j; 
+            for (j = 1 << 31; j > 0; j = j / 2) 
+            (pt->commandList[i]->instruction & j)? printf("1"): printf("0"); 
+
             printf("\n");
         }
         else
@@ -1002,7 +999,6 @@ void evaluate(ParseTable* pt)
                     imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                     imm = (pt->commandList[i]->address - imm)/INST_SIZE;
                     imm = ~imm;
-                    imm = imm & 0x0000FFFF;
                 }
                 else if(opCode == -15) // Handling for LUI generated from LA
                 {
@@ -1021,7 +1017,7 @@ void evaluate(ParseTable* pt)
                     imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                 }
                 
-                // Enforce 16 Bit Bounds
+                // Enforce Bounds
                 imm = imm & 0x0000FFFF;
             }
             case 'j':

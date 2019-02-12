@@ -3,6 +3,12 @@ __CDA3101 - Julian Sweatt__
 
 ---
 
+## Contents
+* [README.md](./README.md) _This File_ | Project Details & Information
+* [proj1.c](./proj1.c) | MIPS Assembler Implementation
+* [tests](./tests) | Directory Contains Tests of Project 1
+  * [test1.asm](./tests/test1.asm) | Long Test
+
 ## Supported Instructions
 * SLL _(Shift Left Logical)_
 * J _(Jump)_
