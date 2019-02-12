@@ -8,7 +8,7 @@
  *----------------------------------*/
 #define MAX_LABELS 200      // Maximum amount of labels
 #define MAX_COMMANDS 200    // Maximum commands per file/input
-#define DEBUG_MODE 1        // Enable debug mode with (1)
+#define DEBUG_MODE 0        // Enable debug mode with (1)
 #define INST_SIZE 4         // Bytes Per Instruction (Default 4)
 
 /*----------------------------------*
@@ -747,11 +747,11 @@ ParseTable* parse()
                     {
                         if(strcmp(tempDataDirective,"space")==0)
                         {
-                            bytesDeclared = atoi(tempSize) * INST_SIZE;
+                            bytesDeclared = atoi(tempSize);
                         }
                         else if(strcmp(tempDataDirective,"word")==0)
                         {
-                            bytesDeclared = atoi(tempSize);
+                            bytesDeclared = atoi(tempSize) * INST_SIZE;
                         }
                         else
                         {
@@ -941,14 +941,14 @@ void evaluate(ParseTable* pt)
     while(pt->commandList[i]!=NULL)
     {
         // Assign Registers from Parsed Data
-        unsigned rs = 0;
-        unsigned rt = 0;
-        unsigned rd = 0;
-        unsigned shamt = 0;
-        unsigned func = 0;
-        unsigned imm = 0;
-        unsigned address = 0;
-        int opCode = 0;
+        int8_t rs = 0;
+        int8_t rt = 0;
+        int8_t rd = 0;
+        int8_t shamt = 0;
+        int8_t func = 0;
+        int32_t imm = 0;
+        int32_t address = 0;
+        int8_t opCode = 0;
 
         opCode = getOpcode(pt->commandList[i]->args[0]);
 
@@ -1002,8 +1002,7 @@ void evaluate(ParseTable* pt)
                     imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                     imm = (pt->commandList[i]->address - imm)/INST_SIZE;
                     imm = ~imm;
-                    imm = imm << 16;
-                    imm = imm >> 16;
+                    imm = imm & 0x0000FFFF;
                 }
                 else if(opCode == -15) // Handling for LUI generated from LA
                 {
@@ -1011,8 +1010,8 @@ void evaluate(ParseTable* pt)
                     rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
                     imm = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
                     // Trim Lower-Half of Bits
+                    imm = imm & 0xFFFF0000;
                     imm = imm >> 16;
-                    imm = imm << 16;
                 }
                 else if(opCode == -13) // Handling for ORI generated from LA
                 {
@@ -1020,14 +1019,14 @@ void evaluate(ParseTable* pt)
                     rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
                     rs = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
                     imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
-                    // Trim Upper-Half of Bits
-                    imm = imm << 16;
-                    imm = imm >> 16;
                 }
+                
+                // Enforce 16 Bit Bounds
+                imm = imm & 0x0000FFFF;
             }
             case 'j':
             {
-                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])-pt->commandList[i]->address - 2; //todo Investigate further
+                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])/4; //todo Investigate further
             }
         }
 
