@@ -3,71 +3,311 @@
  * @author Julian Sweatt
  */
 
+/*----------------------------------*
+ *             CONFIG               *
+ *----------------------------------*/
+#define MAX_LABELS 200      // Maximum amount of labels
+#define MAX_COMMANDS 200    // Maximum commands per file/input
+#define DEBUG_MODE 0        // Enable debug mode with (1)
+#define INST_SIZE 4         // Bytes Per Instruction (Default 4)
+
+/*----------------------------------*
+ *             IMPORTS              *
+ *----------------------------------*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h> 
 
-#define MAX_LABELS 25       // Maximum amount of labels
-#define MAX_COMMANDS 100    // Maximum commands per file/input
-#define DEBUG_MODE 0        // Enable debug mode with (1)
-#define INST_SIZE 4         // Bytes Per Instruction (Default 4)
-
-// Declarations 
+/*----------------------------------*
+ *              HEADER              *
+ *----------------------------------*/
+// ---------- Structures ---------- //
+/**
+ * @struct Command
+ * @brief Structure used to indicate a command. Note, command used interchangably
+ *        with the term 'instruction'.
+ */
 typedef struct
 {
-    char** args;
-    int address;
-    int instruction;
+    char** args;        // Tokenized command arguments where args[0] is the command name
+    int address;        // Address of the instruction
+    int instruction;    // 32 bit representation of the instruction
 } Command;
 
+/**
+ * @struct Label
+ * @brief Structure used to indicate a label.
+ */
 typedef struct 
 {
-    char* name;
-    int address;
-    int size;
+    char* name;         // Name of the label
+    int address;        // Address of the label
+    int size;           // Size of the instruction or data marked by the label
 } Label;
 
+/**
+ * @struct ParseTable
+ * @brief Pair of Command List and Label List.
+ */
 typedef struct
 {
-    Command** commandList;
-    Label** labelList;
+    Command** commandList;  // List of commands
+    Label** labelList;      // List of labels
 } ParseTable;
 
-void destroyStringArray(char** arr);
-
+// ---------- Command Functions ---------- //
+/**
+ * @brief Builds a command structure.
+ * @param char** args Tokenized instruction
+ * @param int address Address of the instruction
+ * @return Command* Newly created command
+ */
 Command* CommandConstructor(char** args, int address);
+
+/**
+ * @brief Initializes an array of commands.
+ * @return Command** Newly created array of commands.
+ */
 Command** InitCommandList();
+
+/**
+ * @brief Free all memory associated with a command list.
+ * @param Command** cmdList Command list to free.
+ * @return void
+ */
 void DestroyCommandList(Command** cmdList);
+
+/**
+ * @brief Push a new command on to a command-list at the end
+ * @param Command** cmdList Command list to append to
+ * @param Command* newCmd New command to append to the command list
+ * @return void
+ */
 void pushCmdList(Command** cmdList, Command* newCmd);
+
+/**
+ * @brief Get the appropriate address of the next instruction
+ * @param Command** The existing command list
+ * @return int Address of next instruction
+ */
 int getNextCmdAddress(Command** cmdList);
 
-Label* LabelConstructor(char* name, int address, int size);
-Label** InitLabelList();
-void DestroyLabelList(Label** labelList);
-void pushLabelList(Label** labelList, Label* newLabel);
-void printLabelList(Label** labelList);
-int getSizeOfLabelsArray(Label** labelList);
-int getNextLabAddress(Label** labList);
-Label* queryLabel(Label** labelList, char* query);
-
-ParseTable* ParseTableConstructor(Command** cmdList, Label** labList);
-void DestroyParseTable(ParseTable* pt);
-char** initStringsArray(int size);
-void destroyStringArray(char** arr);
-void pushArgsArray(char** args, char* newArg);
+/**
+ * @private This is a debug function. 
+ * @brief Print a list of commands.
+ * @param Command** cmdList List of commands to print to stdout
+ * @return void
+ */
 void printCommandsArray(Command** cmdList);
+
+/**
+ * @brief Get the size of a list of commands, excluding the NULL terminator
+ * @param @Command** cmdList List of commands to get the size of
+ * @return int The size of the list of commands (excluding terminator)
+ */
 int getSizeOfCommandsArray(Command** cmdList);
 
+// ------------ Label Functions ------------ //
+/**
+ * @brief Builds a label structure
+ * @param char* name Name of the label
+ * @param int address Address of the label
+ * @param size Size (in bytes) of the label's target
+ * return Label* Newly created label
+ */
+Label* LabelConstructor(char* name, int address, int size);
+
+/**
+ * @brief Initializes a list of labels in memory
+ * @return Label** Newly created list of labels
+ */
+Label** InitLabelList();
+
+/**
+ * @brief Free all memory associated with a list of labels
+ * @param Label** labelList List of labels to free
+ * @return void
+ */
+void DestroyLabelList(Label** labelList);
+
+/**
+ * @brief Push a label onto the end of a list of labels
+ * @param Label** labelList List of labels to append to
+ * @param Label* newLabel New label to append to the list
+ * @return void
+ */
+void pushLabelList(Label** labelList, Label* newLabel);
+
+/**
+ * @private This is a debug function.
+ * @brief Prints all labels in a label list to stdout
+ * @param Label** labelList List of labels to print
+ * @return void
+ */
+void printLabelList(Label** labelList);
+
+/**
+ * @brief Get the size of a labels array (excluding NULL terminator)
+ * @param Label** labelList List of labels to get the size of
+ * @return int Size of the label's list (excluding NULL terminator)
+ */
+int getSizeOfLabelsArray(Label** labelList);
+
+/**
+ * @brief Get the next label address, taking memory allocation sizes into consideration
+ * @param Label** labList List of labels to get the next appropriate address for
+ * @return int Next appropriate label address
+ */
+int getNextLabAddress(Label** labList);
+
+/**
+ * @brief Search for the existance of a label by instruction/command name
+ * @param Label** labelList List of labels to query
+ * @param @char* query Name of the instruction/command to search for
+ * @return Label* Returns the label if found, returns NULL otherwise
+ */
+Label* queryLabel(Label** labelList, char* query);
+
+// ------- Parsing & Utility Functions ------- //
+/**
+ * @brief Construct a parse table (pair of command list and label list)
+ * @param Command** cmdList List of commands
+ * @param Label** labList List of labels
+ * @return ParseTable* Newly created ParseTable
+ */
+ParseTable* ParseTableConstructor(Command** cmdList, Label** labList);
+
+/**
+ * @brief Free all memory associated with an entire parse table
+ * @param ParseTable* pt ParseTable to free
+ * @return void
+ */
+void DestroyParseTable(ParseTable* pt);
+
+/**
+ * @brief Initialize an array of strings
+ * @param int size Size of the array of strings
+ * @return char** Newly created array of strings
+ */
+char** initStringsArray(int size);
+
+/**
+ * @brief Free all memory associated with an array of c-strings. 
+ * @param char** arr Array of c-strings to free.
+ * @return void
+ */
+void destroyStringArray(char** arr);
+
+/**
+ * @brief Push a string onto the end of an array of strings
+ * @param char** args Existing array of strings to append to
+ * @param char* newArg String to append to the array of strings
+ * @return void
+ */
+void pushArgsArray(char** args, char* newArg);
+
+/**
+ * @brief Search a string for a character
+ * @param char* str String to search
+ * @param char target Character to search for
+ * @return Returns the index of the character if found or 0 if not found
+ */
 int stringContains(char* str, char target);
+
+/**
+ * @brief Remove a range of indexes from a dynamic string
+ * @param char* str String to remove from
+ * @param int indexLow Lower index to remove (Inclusive)
+ * @param int indexHigh Higher index to remove (Inclusive)
+ * @return char* New string with range removed
+ */
 char* removeRangeFromString(char* str, int indexLow, int indexHigh);
+
+/**
+ * @brief Resolve an argument/register in an instruction to 32 bit representation
+ * @param Label** labList List of labels to use of label resolution
+ * @param char* regString Register/Argument string (null terminated)
+ * @return int 32 bit integer representation of the argument
+ */
 int resolveRegister(Label** labList,char* regString);
+
+/**
+ * @brief Resolve a known register value to the appropriate 32 bit integer representation
+ * @param char* regString Register/Argument string to resolve (null terminated)
+ * @return int 32 bit integer representation of the argument
+ */
 int registerToDecimal(char* regString);
+
+/**
+ * @brief Generate a ParseTable from standard input. Expects a MIPS program file.
+ * @return ParseTable* Parsed MIPS program
+ */
 ParseTable* parse();
+
+/**
+ * @brief Get the instruction type of an instruction/command
+ * @param char* cmd Command name to get the type of
+ * @return char `i`, `r`, or `j` for the appropriate instruction type
+ */
 char getType(char* cmd);
+
+/**
+ * @brief Get the operation code for an instruction/command
+ * @param char* cmd Command name to get the opcode of
+ * @return int 32 bit integer representation of the argument
+ */
 int getOpcode(char* cmd);
+
+/**
+ * @brief Print the machine code representation of the assembled ParseTable
+ * @param ParseTable* pt ParseTable to print
+ * @return void
+ * 
+ * Note, this is the end-goal of the project. The parsetable should be formed and
+ * evaluated before calling this command.
+ */
 void printMachineCode(ParseTable* pt);
 
+
+/**
+ * @brief Resolve memory addresses and allocations throughout the parse table.
+ * @param ParseTable* pt ParseTable to evaluate
+ * @return void
+ * 
+ * This function is responsible for evaluating memory addresses, jumps, branches, 
+ * and memory allocations throughout the parse table. This is the `second pass` discussed
+ * in the assignment details. 
+ */
 void evaluate(ParseTable* pt);
+
+/*----------------------------------*
+ *          IMPLEMENTATIONS         *
+ *----------------------------------*/
+// ------------- MAIN ------------- //
+/**
+ * @brief The main function for the assembler. 
+ * @return int 0 on success 1 on fail/fatal error
+ */
+int main()
+{
+    // Pass 1 (Parse Table)
+    ParseTable* pt = parse();
+
+    // Debugging
+    if(DEBUG_MODE)
+    {
+        printLabelList(pt->labelList); //debug
+        printCommandsArray(pt->commandList); // debug
+    }
+
+    evaluate(pt);
+
+    printMachineCode(pt);
+
+    // Destructor
+    DestroyParseTable(pt);
+    return(0);
+} 
 
 // ---------- Command Functions ---------- //
 Command* CommandConstructor(char** args, int address)
@@ -233,7 +473,6 @@ Label* queryLabel(Label** labelList, char* query)
 // ---------- Parse Functions ---------- //
 ParseTable* ParseTableConstructor(Command** cmdList, Label** labList)
 {
-    //Label* newLabel = malloc(sizeof(Label));
     ParseTable* newPT = malloc(sizeof(ParseTable));
     newPT->commandList = cmdList;
     newPT->labelList = labList;
@@ -678,30 +917,6 @@ void printMachineCode(ParseTable* pt)
     }
 }
 
-/**
- * @brief The main function for the assembler. 
- */
-int main()
-{
-    // Pass 1 (Parse Table)
-    ParseTable* pt = parse();
-
-    // Debugging
-    if(DEBUG_MODE)
-    {
-        printLabelList(pt->labelList); //debug
-        printCommandsArray(pt->commandList); // debug
-    }
-
-    evaluate(pt);
-
-    printMachineCode(pt);
-
-    // Destructor
-    DestroyParseTable(pt);
-    return(0);
-} 
-
 // ---------- Evaluate and Resolve Instructions ---------- //
 void evaluate(ParseTable* pt)
 {
@@ -763,6 +978,16 @@ void evaluate(ParseTable* pt)
                     rt = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
                     imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                 }
+                else if(opCode == 4) // BEQ
+                {
+                    rs = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
+                    imm = (pt->commandList[i]->address - imm)/INST_SIZE;
+                    imm = ~imm;
+                    imm = imm << 16;
+                    imm = imm >> 16;
+                }
                 else if(opCode == -15) // Handling for LUI generated from LA
                 {
                     opCode = 15;
@@ -785,7 +1010,7 @@ void evaluate(ParseTable* pt)
             }
             case 'j':
             {
-                
+                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])-pt->commandList[i]->address - 2; //todo Investigate further
             }
         }
 
@@ -844,7 +1069,6 @@ void evaluate(ParseTable* pt)
                 // J-Type Instructions
                 // Begin Instruction With Opcode
                 pt->commandList[i]->instruction = opCode;
-
                 pt->commandList[i]->instruction = pt->commandList[i]->instruction << 26;
                 pt->commandList[i]->instruction = pt->commandList[i]->instruction | address;
                 break;
