@@ -9,7 +9,7 @@
 
 #define MAX_LABELS 25       // Maximum amount of labels
 #define MAX_COMMANDS 100    // Maximum commands per file/input
-#define DEBUG_MODE 1        // Enable debug mode with (1)
+#define DEBUG_MODE 0        // Enable debug mode with (1)
 #define INST_SIZE 4         // Bytes Per Instruction (Default 4)
 
 // Declarations 
@@ -60,6 +60,7 @@ int getSizeOfCommandsArray(Command** cmdList);
 
 int stringContains(char* str, char target);
 char* removeRangeFromString(char* str, int indexLow, int indexHigh);
+int resolveRegister(Label** labList,char* regString);
 int registerToDecimal(char* regString);
 ParseTable* parse();
 char getType(char* cmd);
@@ -439,11 +440,11 @@ ParseTable* parse()
                         char** luiArgs = initStringsArray(4);
                         char** oriArgs = initStringsArray(4);
 
-                        pushArgsArray(luiArgs, "lui\0");
+                        pushArgsArray(luiArgs, "_lui\0");
                         pushArgsArray(luiArgs, "$1\0");
                         pushArgsArray(luiArgs, laArgs[1]); // @todo: Fix label retrieval 
 
-                        pushArgsArray(oriArgs, "ori\0");
+                        pushArgsArray(oriArgs, "_ori\0");
                         pushArgsArray(oriArgs, laArgs[0]);
                         pushArgsArray(oriArgs, "$1\0");
                         pushArgsArray(oriArgs, laArgs[1]); // @todo: Fix ^
@@ -537,100 +538,71 @@ ParseTable* parse()
 }
 
 // ---------- Translation Utilities ---------- //
+int resolveRegister(Label** labList,char* regString)
+{
+    if(queryLabel(labList, regString))
+    {
+        if(DEBUG_MODE)
+        {
+            printf("Resolving label `%s` to address `%d`.\n", regString, queryLabel(labList, regString)->address);
+        }
+        return queryLabel(labList, regString)->address;
+    }
+    return registerToDecimal(regString);
+}
+
 int registerToDecimal(char* regString)
 {
-    // $t0-$t7 -> 8-15
-    // $s0-$s7 -> 16-23
-    // $0 -> 0
-    
     // Temp. Registers ($t)
     if(strcmp(regString, "$t0\0") == 0)
-    {
         return 8;
-    }
     else if(strcmp(regString, "$t1\0")==0)
-    {
         return 9;
-    }
     else if(strcmp(regString, "$t2\0")==0)
-    {
         return 10;
-    }
     else if(strcmp(regString, "$t3\0")==0)
-    {
         return 11;
-    }
     else if(strcmp(regString, "$t4\0")==0)
-    {
         return 12;
-    }
     else if(strcmp(regString, "$t5\0")==0)
-    {
         return 13;
-    }
     else if(strcmp(regString, "$t6\0")==0)
-    {
         return 14;
-    }
     else if(strcmp(regString, "$t7\0")==0)
-    {
         return 15;
-    }
     // Save Registers ($s)
     else if(strcmp(regString, "$s0\0")==0)
-    {
         return 16;
-    }
     else if(strcmp(regString, "$s1\0")==0)
-    {
         return 17;
-    }
     else if(strcmp(regString, "$s2\0")==0)
-    {
         return 18;
-    }
     else if(strcmp(regString, "$s3\0")==0)
-    {
         return 19;
-    }
     else if(strcmp(regString, "$s4\0")==0)
-    {
         return 20;
-    }
     else if(strcmp(regString, "$s5\0")==0)
-    {
         return 21;
-    }
     else if(strcmp(regString, "$s6\0")==0)
-    {
         return 22;
-    }
     else if(strcmp(regString, "$s7\0")==0)
-    {
         return 23;
-    }
     // Null Register ($0)
     else if(strcmp(regString, "$0\0")==0)
-    {
         return 0;
-    }
     // Pseudo-Instruction Register
     else if(strcmp(regString, "$1\0")==0) // @todo May need to resolve all numeric registers
-    {
         return 1;
-    }
     // Others (Immediate)
     else
-    {
         return atoi(regString);
-    }
 }
 
 char getType(char* cmd)
 {
     if( (strcmp(cmd, "add\0")==0) || (strcmp(cmd, "nor\0")==0) || (strcmp(cmd, "sll\0")==0) )
         return 'r';
-    else if( (strcmp(cmd, "addi\0")==0) || (strcmp(cmd, "ori\0")==0) || (strcmp(cmd, "lui\0")==0) || (strcmp(cmd, "sw\0")==0) || (strcmp(cmd, "lw\0")==0) || (strcmp(cmd, "bnw\0")==0) || (strcmp(cmd, "beq\0")==0) )
+    else if( (strcmp(cmd, "addi\0")==0) || (strcmp(cmd, "ori\0")==0) || (strcmp(cmd, "lui\0")==0) || (strcmp(cmd, "_ori\0")==0) || (strcmp(cmd, "_lui\0")==0) || (strcmp(cmd, "sw\0")==0) || (strcmp(cmd, "lw\0")==0) || (strcmp(cmd, "bnw\0")==0) || (strcmp(cmd, "beq\0")==0) )
         return 'i';
     else if( (strcmp(cmd, "j\0")==0) )
         return 'j';
@@ -665,6 +637,10 @@ int getOpcode(char* cmd)
         return 5;
     else if(strcmp(cmd, "j\0")==0)
         return 2;
+    else if(strcmp(cmd, "_lui\0")==0)
+        return -15;
+    else if(strcmp(cmd, "_ori\0")==0)
+        return -13;
     else
     {
         printf("[ERROR] Unable to get opcode for `%s`. Invalid command.\n", cmd);
@@ -673,7 +649,8 @@ int getOpcode(char* cmd)
     
 }
 
-//////// DEBUG CODE PROVIDED BY https://www.geeksforgeeks.org/binary-representation-of-a-given-number/
+// Binary Print Method (Debug Only)
+// Source: https://www.geeksforgeeks.org/binary-representation-of-a-given-number/
 void bin(unsigned n) 
 { 
     unsigned i; 
@@ -689,8 +666,6 @@ void printMachineCode(ParseTable* pt)
     {
         if(DEBUG_MODE)
         {
-            // @NOTICE Convert to binary not built in to it. May need to do some stuff to see it.
-            //@todo Next: Get the opcode and shift it to the left-most bits
             printf("0x%08X: 0x%08X ", pt->commandList[i]->address, pt->commandList[i]->instruction);
             bin(pt->commandList[i]->instruction);
             printf("\n");
@@ -741,7 +716,7 @@ void evaluate(ParseTable* pt)
         unsigned func = 0;
         unsigned imm = 0;
         unsigned address = 0;
-        unsigned opCode = 0;
+        int opCode = 0;
 
         opCode = getOpcode(pt->commandList[i]->args[0]);
 
@@ -752,41 +727,60 @@ void evaluate(ParseTable* pt)
                 func = opCode;
                 if(opCode == 32 || opCode == 39) // ADD/NOR
                 {
-                    rd = registerToDecimal(pt->commandList[i]->args[1]);
-                    rs = registerToDecimal(pt->commandList[i]->args[2]);
-                    rt = registerToDecimal(pt->commandList[i]->args[3]);
+                    rd = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    rs = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                 }
                 else if(opCode == 0) // SLL
                 {
-                    rd = registerToDecimal(pt->commandList[i]->args[1]);
-                    rt = registerToDecimal(pt->commandList[i]->args[2]);
-                    shamt = registerToDecimal(pt->commandList[i]->args[3]);
+                    rd = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    shamt = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                 }
             }
             case 'i':
             {
                 if(opCode == 8 || opCode == 13) // ADDI/ORI
                 {
-                    rt = registerToDecimal(pt->commandList[i]->args[1]);
-                    rs = registerToDecimal(pt->commandList[i]->args[2]);
-                    imm = registerToDecimal(pt->commandList[i]->args[3]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    rs = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                 }
                 else if(opCode == 15) // LUI
                 {
-                    rt = registerToDecimal(pt->commandList[i]->args[1]);
-                    imm = registerToDecimal(pt->commandList[i]->args[2]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
                 }
                 else if(opCode == 43 || opCode == 35) // SW/LW
                 {
-                    rt = registerToDecimal(pt->commandList[i]->args[1]);
-                    imm = registerToDecimal(pt->commandList[i]->args[2]);
-                    rs = registerToDecimal(pt->commandList[i]->args[3]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    rs = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
                 }
                 else if(opCode == 5) // BNE
                 {
-                    rs = registerToDecimal(pt->commandList[i]->args[1]);
-                    rt = registerToDecimal(pt->commandList[i]->args[2]);
-                    // = registerToDecimal(pt->commandList[i]->args[3]); //@todo Label Handeling
+                    rs = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
+                }
+                else if(opCode == -15) // Handling for LUI generated from LA
+                {
+                    opCode = 15;
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    // Trim Lower-Half of Bits
+                    imm = imm >> 16;
+                    imm = imm << 16;
+                }
+                else if(opCode == -13) // Handling for ORI generated from LA
+                {
+                    opCode = 13;
+                    rt = resolveRegister(pt->labelList, pt->commandList[i]->args[1]);
+                    rs = resolveRegister(pt->labelList, pt->commandList[i]->args[2]);
+                    imm = resolveRegister(pt->labelList, pt->commandList[i]->args[3]);
+                    // Trim Upper-Half of Bits
+                    imm = imm << 16;
+                    imm = imm >> 16;
                 }
             }
             case 'j':
