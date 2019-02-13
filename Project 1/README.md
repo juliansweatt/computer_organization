@@ -12,6 +12,7 @@ __CDA3101 - Julian Sweatt__
   * [test2.asm](./tests/test2.asm) | Test of All R-Type Instructions
   * [test3.asm](./tests/test3.asm) | Test of All I-Type Instructions (Includes LA)
   * [test4.asm](./tests/test4.asm) | Test of J-Type Instruction
+  * [test5.asm](./tests/test5.asm) | Demo MIPS Program (Tests All Supported Instructions)
 
 ## Supported Instructions
 * SLL _(Shift Left Logical)_
@@ -33,6 +34,7 @@ __CDA3101 - Julian Sweatt__
   * Bash script which compiles `proj1.c` and runs all tests in the [`tests`](./tests) directory on `a.out` against the known correct executable file `Proj1.exe`.
   * Assumed to be executed in a directory containing `proj1.c` and `Proj1.exe` where the [`tests`](./tests) directory is a subdirectory. 
 * [Test 1](./tests/test1.asm) | Brute Force Test Which Assesses All Required Commands Within Their Argument Bounds Including Edge Cases
+  * **NOTE:** This test does not follow the logical flow of MIPS. Jumps to memory are used, for example. This is a test of the functionality of all supported instructions in the assembler, not of proper usage or syntax.
   * `LA` | Tests loading an address found in `.text` or `.data` directives
   * `SLL` | Tests shifting. Note, `0<=shift< 32` is a requirement of the `SLL` instruction, therefore tests only occur within the bounds. 
   * `ADD` | Tests addition using temp/save/null/pseudo registers. 
@@ -61,3 +63,4 @@ __CDA3101 - Julian Sweatt__
 * [Test 4](./tests/test4.asm) | Test of The J-Type Instruction
   * `J` | Tests the "jump" operation using preceding and succeeding labels.
   * `ADDI` | Tests the "add immediate" operation by using it as the final function to escape the jumps.
+* [Test 5](./tests/test5.asm) | Program With a Logical Flow Which Tests Realistic Usability of the Assembler and Uses All Required Supported Instructions
