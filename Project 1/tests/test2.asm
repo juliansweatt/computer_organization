@@ -11,3 +11,4 @@
 	sll	$s1,$s1,5
 	.data
 	.word	0
+	
