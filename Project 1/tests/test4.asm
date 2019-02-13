@@ -7,4 +7,4 @@ J4:	j	J1
 J5:	j	J2
 END:	addi	$s0,$s0,0
 	.data
-	.space	0
+.space	0

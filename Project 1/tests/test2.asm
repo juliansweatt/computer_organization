@@ -10,5 +10,4 @@
 	nor	$s1,$t3,$s1
 	sll	$s1,$s1,5
 	.data
-	.word	0
-	
+.word	0
