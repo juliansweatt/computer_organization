@@ -854,7 +854,7 @@ char getType(char* cmd)
         (strcmp(cmd, "_lui\0")==0) ||
         (strcmp(cmd, "sw\0")==0) ||
         (strcmp(cmd, "lw\0")==0) ||
-        (strcmp(cmd, "bnw\0")==0) ||
+        (strcmp(cmd, "bne\0")==0) ||
         (strcmp(cmd, "beq\0")==0)
         )
         return 'i';
