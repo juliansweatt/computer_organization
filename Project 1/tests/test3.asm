@@ -45,7 +45,7 @@ LOOP:	addi	$s0,$s0,1
 	addi	$s1,$0,9
 LOOP2:	addi	$s0,$s0,1
 	beq	$s0,$s1,LOOP2
-	beq	$s0,s0,END
+	beq	$s0,$s0,END
 END:	addi	$t0,$0,0
 	.data
 testInt:	.word	1

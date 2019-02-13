@@ -751,7 +751,7 @@ ParseTable* parse()
                         }
                         else if(strcmp(tempDataDirective,"word")==0)
                         {
-                            bytesDeclared = atoi(tempSize) * INST_SIZE;
+                            bytesDeclared = INST_SIZE;
                         }
                         else
                         {
