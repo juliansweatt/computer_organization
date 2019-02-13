@@ -362,7 +362,7 @@ int getNextCmdAddress(Command** cmdList)
     int address = 0;
     if(getSizeOfCommandsArray(cmdList) > 0)
     {
-        address = cmdList[getSizeOfCommandsArray(cmdList)-1]->address + 4;
+        address = cmdList[getSizeOfCommandsArray(cmdList)-1]->address + INST_SIZE;
     }
     return address;
 }
@@ -611,7 +611,7 @@ ParseTable* parse()
             {
                 directive='d';
             }
-            else if(strcmp(temp,"text")==0)
+            else if(strcmp(temp,"space")==0)
             {
                 // Text
             }
@@ -1022,7 +1022,7 @@ void evaluate(ParseTable* pt)
             }
             case 'j':
             {
-                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])/4; //todo Investigate further
+                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])/INST_SIZE; //todo Investigate further
             }
         }
 
