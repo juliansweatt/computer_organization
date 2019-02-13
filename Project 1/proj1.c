@@ -11,6 +11,11 @@
 #define DEBUG_MODE 0        // Enable debug mode with (1)
 #define INST_SIZE 4         // Bytes Per Instruction (Default 4)
 
+// Note: Enabling debug mode will enable all helper print statements. The program will not
+//       match expected output in debug mode as additional information is provided.
+// Note: Although the assignment sets the maximum amount of commands as 100, the maximum is
+//       set to 200 as each `la` command evaluates to two commands (lui and ori).
+
 /*----------------------------------*
  *             IMPORTS              *
  *----------------------------------*/
@@ -293,15 +298,17 @@ int main()
     // Pass 1 (Parse Table)
     ParseTable* pt = parse();
 
-    // Debugging
+    // Debug Execution Only
     if(DEBUG_MODE)
     {
         printLabelList(pt->labelList); //debug
         printCommandsArray(pt->commandList); // debug
     }
 
+    // Pass 2 (Evaluate Labels & Generate 32 Bit Instruction Representations)
     evaluate(pt);
 
+    // Print Everything in Appropriate Format
     printMachineCode(pt);
 
     // Destructor
@@ -353,7 +360,7 @@ void pushCmdList(Command** cmdList, Command* newCmd)
     }
     else
     {
-        printf("[ERROR]: Expected a maximum of %d commands. Unable to add another command `%s`.\n", MAX_COMMANDS, newCmd);
+        printf("[ERROR]: Expected a maximum of %d commands. Unable to add another command `%s`.\n", MAX_COMMANDS, newCmd->args[0]);
     }
 }
 
@@ -525,7 +532,7 @@ void pushArgsArray(char** args, char* newArg)
     }
 }
 
-void printCommandsArray(Command** cmdList) // debug
+void printCommandsArray(Command** cmdList)
 {
     int i = 0;
     while(cmdList[i]!=NULL && i < MAX_COMMANDS)
@@ -613,7 +620,7 @@ ParseTable* parse()
             }
             else if(strcmp(temp,"space")==0)
             {
-                // Text
+                // Space
             }
             else if(strcmp(temp,"word")==0)
             {
@@ -623,11 +630,10 @@ ParseTable* parse()
             {
                 printf("[ERROR] An unknown directive `%s` was encountered.\n", temp);
             }
-            
 
             if(DEBUG_MODE)
             {
-                printf("Directive Swapped:%s\n",temp); // debug
+                printf("Directive Swapped:%s\n",temp);
             }
         }
         else
@@ -643,7 +649,7 @@ ParseTable* parse()
                     strncpy(temp, lineBuffer, colonIndex);
                     temp[colonIndex] = '\0';
                     removeRangeFromString(lineBuffer,0,colonIndex);
-                    pushLabelList(labelList, LabelConstructor(temp, getNextCmdAddress(commandList),INST_SIZE)); //todo: add address
+                    pushLabelList(labelList, LabelConstructor(temp, getNextCmdAddress(commandList),INST_SIZE));
                 }
 
                 // Command Handling
@@ -681,12 +687,12 @@ ParseTable* parse()
 
                         pushArgsArray(luiArgs, "_lui\0");
                         pushArgsArray(luiArgs, "$1\0");
-                        pushArgsArray(luiArgs, laArgs[1]); // @todo: Fix label retrieval 
+                        pushArgsArray(luiArgs, laArgs[1]);
 
                         pushArgsArray(oriArgs, "_ori\0");
                         pushArgsArray(oriArgs, laArgs[0]);
                         pushArgsArray(oriArgs, "$1\0");
-                        pushArgsArray(oriArgs, laArgs[1]); // @todo: Fix ^
+                        pushArgsArray(oriArgs, laArgs[1]);
 
                         pushCmdList(commandList, CommandConstructor(luiArgs,getNextCmdAddress(commandList)));
                         pushCmdList(commandList, CommandConstructor(oriArgs,getNextCmdAddress(commandList)));
@@ -766,7 +772,7 @@ ParseTable* parse()
                     }
                     else
                     {
-                        pushLabelList(labelList, LabelConstructor(temp, getNextLabAddress(labelList), bytesDeclared)); //todo: add address
+                        pushLabelList(labelList, LabelConstructor(temp, getNextLabAddress(labelList), bytesDeclared));
                     }
                 }
             }
@@ -830,7 +836,7 @@ int registerToDecimal(char* regString)
     else if(strcmp(regString, "$0\0")==0)
         return 0;
     // Pseudo-Instruction Register
-    else if(strcmp(regString, "$1\0")==0) // @todo May need to resolve all numeric registers
+    else if(strcmp(regString, "$1\0")==0)
         return 1;
     // Others (Immediate)
     else
@@ -1022,7 +1028,7 @@ void evaluate(ParseTable* pt)
             }
             case 'j':
             {
-                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])/INST_SIZE; //todo Investigate further
+                address = resolveRegister(pt->labelList, pt->commandList[i]->args[1])/INST_SIZE;
             }
         }
 

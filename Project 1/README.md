@@ -2,6 +2,8 @@
 __CDA3101 - Julian Sweatt__  
 
 ---
+## About
+MIPS Assembler created from [CDA3101 Project 1 Specifications](http://www.cs.fsu.edu/~jayarama/org2sp19/Homeworks/Project1.pdf). 
 
 ## Contents
 * [README.md](./README.md) _This File_ | Project Details & Information
@@ -28,6 +30,9 @@ __CDA3101 - Julian Sweatt__
 * NOR _(Neither)_
 * SW _(Save Word)_
 * LA _(Load Address - Pseudo-Mips Instruction)_
+
+## Known Issues
+There are no known issues with the assembler. All tests provided and created by the student match the output of the provided executable. Please note, [`test2.asm`](./tests/test2.asm) and [`test3.asm`](./tests/test3.asm) do include the command instruction types `sub` and `beq`, as they were supported in the original executable and tests provided, even though they are not listed in the required instructions. Though not explicitly listed in the assignment, the `$1` register resolves to `1`, as the register is used in the provided tests.
 
 ## Test Details
 * [Test Script](./tests/runTests.bash)
