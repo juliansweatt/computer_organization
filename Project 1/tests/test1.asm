@@ -5,7 +5,7 @@ MAIN:	sll	$t0,$t1,10
 	la	$t5,A1
 	la	$s2,A2
 	la	$t1,MAIN
-bookmark:	sll $t5,$s0,0
+bookmark:	sll	$t5,$s0,0
 	add	$t1,$t2,$0
 	add	$t3,$s0,$1
 	addi	$s2,$t3,21
@@ -43,16 +43,16 @@ bookmark:	sll $t5,$s0,0
 	bne	$t1,$s1,MAIN
 	bne	$0,$0,A1
 	bne	$s7,$t7,END
-jumpcmd:	j MAIN
-jloop:	j jloop
+jumpcmd:	j	MAIN
+jloop:	j	jloop
 	j	jumpcmd
-	j END
-	j A1
-	j A2
-	j A3
-	j bookmark
-END:	add $t0,$0,$0
+	j	END
+	j	A1
+	j	A2
+	j	A3
+	j	bookmark
+END:	add	$t0,$0,$0
 	.data
-A1:	.word	0
+A1:	.word	1
 A2:	.space	500
-A3: .word	1
+A3:	.word	1

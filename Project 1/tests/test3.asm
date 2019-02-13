@@ -22,7 +22,7 @@ MAIN:	addi	$s0,$0,50
 	lui	$t5,-6000
 	lui	$t6,-7000
 	lui	$t7,-8000
-	la $t7,testInt
+	la	$t7,testInt
 	sw	$t6,0($t7)
 	addi	$t6,$0,1
 	sw	$t6,10($t7)
@@ -44,11 +44,11 @@ LOOP:	addi	$s0,$s0,1
 	addi	$s0,$0,8
 	addi	$s1,$0,9
 LOOP2:	addi	$s0,$s0,1
-	beq $s0,$s1,LOOP2
+	beq	$s0,$s1,LOOP2
 	beq	$s0,s0,END
 END:	addi	$t0,$0,0
 	.data
 testInt:	.word	1
 ARRL:	.word	50
 ARRS:	.word	10
-testBool: .space 1
+testBool:	.space	1
