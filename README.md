@@ -2,7 +2,7 @@
 This repository contains computer organization implementation projects made in the [CDA3101](http://www.cs.fsu.edu/~jayarama/org2.php) course by [Professor Sharanya Jayaraman](http://www.cs.fsu.edu/~jayarama/) at Florida State University.
 
 # Projects
-**Project 1** - MIPS Assembler Implementation
+**Project 1** - MIPS Assembler Implementation  
 **Project 2** - MIPS Pipeline Simulator
 
 # Acedemic Honesty & Appropriate Use
