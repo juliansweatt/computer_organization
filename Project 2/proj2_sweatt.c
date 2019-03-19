@@ -56,18 +56,112 @@ typedef struct
     int rd;              // RD Register
     int imm;             // Immediate
     int bt;              // Branch Target
-    int opCode;
-    int func;
-    int shamt;
+    int opCode;          // Operation Code
+    int func;            // Function Code
+    int shamt;           // Shift
 } Instruction;
 
 // ---------- Instruction Functions ---------- //
-void printPath(void);
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getOpCode(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getRS(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getRT(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getRD(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getShamt(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getFunc(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int getImmediate(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+char getType(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+char* getName(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+Instruction serializeInstruction(int ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void printInstruction(Instruction);
 
+// ---------- Pipeline Functions ---------- //
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void printPath(void);
+
 // ---------- Tool Functions ---------- //
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int rightMostBits(int orig, int numBits);
 
 // ---------- Debug Functions ---------- //
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void bin(unsigned n);
 
 /*----------------------------------*
  *              GLOBALS             *
@@ -80,28 +174,7 @@ int ProgCounter;
 /*----------------------------------*
  *          IMPLEMENTATIONS         *
  *----------------------------------*/
-
-void bin(unsigned n) 
-{ 
-    unsigned i; 
-    for (i = 1 << 31; i > 0; i = i / 2) 
-        (n & i)? printf("1"): printf("0"); 
-    printf("\n");
-} // DEBUG FUNCTION FROM G4G
-
-int rightMostBits(int orig, int numBits)
-{
-    int i;
-    int andOp = 0;
-
-    for(i = numBits-1; i >= 0; i--)
-    {
-        andOp = andOp + pow(2,i);
-    }
-
-    return orig & andOp;
-}
-
+// ---------- Instruction Implementations ---------- //
 int getOpCode(int ins)
 {
     return rightMostBits((ins >> 26),6);
@@ -226,14 +299,14 @@ Instruction serializeInstruction(int ins)
     return SerIns;
 }
 
-int main()
+void printInstruction(Instruction ins)
 {
-    printPath();
-    int orig = 17387552;
-    Instruction s = serializeInstruction(orig);
-    printInstruction(s);
+    printf("Name: %s\nType: %c\nRS: %d\nRT: %d\nRD: %d\nImmediate: %d\nBranch Target: %d\
+    \nOpCode: %d\nFunc: %d\nShamt: %d\n", ins.name,ins.type, ins.rs, ins.rt, ins.rd, ins.imm,
+    ins.bt, ins.opCode, ins.func, ins.shamt);
 }
 
+// ---------- Pipeline Implementations ---------- //
 void printPath()
 {
     // Iterator Declaration
@@ -257,9 +330,36 @@ void printPath()
     }
 }
 
-void printInstruction(Instruction ins)
+// ---------- Tool Implementations ---------- //
+int rightMostBits(int orig, int numBits)
 {
-    printf("Name: %s\nType: %c\nRS: %d\nRT: %d\nRD: %d\nImmediate: %d\nBranch Target: %d\
-    \nOpCode: %d\nFunc: %d\nShamt: %d\n", ins.name,ins.type, ins.rs, ins.rt, ins.rd, ins.imm,
-    ins.bt, ins.opCode, ins.func, ins.shamt);
+    int i;
+    int andOp = 0;
+
+    for(i = numBits-1; i >= 0; i--)
+    {
+        andOp = andOp + pow(2,i);
+    }
+
+    return orig & andOp;
+}
+
+// ---------- Debug Functions ---------- //
+void bin(unsigned n)
+{ 
+    unsigned i; 
+    for (i = 1 << 31; i > 0; i = i / 2) 
+        (n & i)? printf("1"): printf("0"); 
+    printf("\n");
+}
+
+/*----------------------------------*
+ *                MAIN              *
+ *----------------------------------*/
+int main()
+{
+    printPath();
+    int orig = 17387552;
+    Instruction s = serializeInstruction(orig);
+    printInstruction(s);
 }
