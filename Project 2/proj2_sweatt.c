@@ -155,6 +155,8 @@ void printPath(void);
  */
 int rightMostBits(int orig, int numBits);
 
+void parseInput();
+
 // ---------- Debug Functions ---------- //
 /**
  * @brief msg
@@ -212,16 +214,15 @@ int getImmediate(int ins)
 
 char getType(int ins)
 {
-    int opCode = getOpCode(ins);
-    if(opCode == 0 && getFunc(ins)>0)
-    {   
-        // R has opCode 0 because opCode is saved in Func segment
-        return 'R';
-    }
-    else if(opCode == OP_NOOP || opCode == OP_HALT)
+    if(getFunc(ins) == OP_NOOP || getFunc(ins) == OP_HALT)
     {
         // Project Unique Op-Codes
         return 'X';
+    }
+    else if(getOpCode(ins) == 0 && getFunc(ins)>0)
+    {   
+        // R has opCode 0 because opCode is saved in Func segment
+        return 'R';
     }
     else
     {
@@ -295,6 +296,10 @@ Instruction serializeInstruction(int ins)
         SerIns.shamt = 0;
         SerIns.func = 0;
     }
+    else if(SerIns.type == 'X')
+    {
+        SerIns.func = getFunc(ins);
+    }
 
     return SerIns;
 }
@@ -304,6 +309,16 @@ void printInstruction(Instruction ins)
     printf("Name: %s\nType: %c\nRS: %d\nRT: %d\nRD: %d\nImmediate: %d\nBranch Target: %d\
     \nOpCode: %d\nFunc: %d\nShamt: %d\n", ins.name,ins.type, ins.rs, ins.rt, ins.rd, ins.imm,
     ins.bt, ins.opCode, ins.func, ins.shamt);
+}
+
+void printInstructionList(Instruction ins[MAX_INSTRUCTIONS])
+{
+    int i; 
+
+    for( i = 0; ins[i-1].func !=  OP_HALT; i++)
+    {
+        printInstruction(ins[i]);
+    }
 }
 
 // ---------- Pipeline Implementations ---------- //
@@ -344,6 +359,22 @@ int rightMostBits(int orig, int numBits)
     return orig & andOp;
 }
 
+void parseInput(void)
+{
+    char lineBuffer[256];
+
+    int i = 0;
+    while(fgets(lineBuffer,MAX_INSTRUCTIONS, stdin))
+    {
+        INS[i] = serializeInstruction(atoi(lineBuffer));
+        if(INS[i].func == OP_HALT)
+        {
+            break;
+        }
+        i++;
+    }
+}
+
 // ---------- Debug Functions ---------- //
 void bin(unsigned n)
 { 
@@ -358,8 +389,11 @@ void bin(unsigned n)
  *----------------------------------*/
 int main()
 {
-    printPath();
-    int orig = 17387552;
-    Instruction s = serializeInstruction(orig);
-    printInstruction(s);
+    // printPath();
+    // int orig = 17387552;
+    // Instruction s = serializeInstruction(orig);
+    // printInstruction(s);
+
+    parseInput();
+    printInstructionList(INS);
 }
