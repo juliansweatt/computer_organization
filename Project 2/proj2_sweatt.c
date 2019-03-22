@@ -33,6 +33,7 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
+#define DEBUG_MODE 1
 #define MAX_INSTRUCTIONS 100
 #define MAX_INS_NAME_LENGTH 5
 #define NUM_REGISTERS 32
@@ -139,6 +140,13 @@ Instruction serializeInstruction(int ins);
  */
 void printInstruction(Instruction);
 
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void printInstructionList(Instruction ins[MAX_INSTRUCTIONS]);
+
 // ---------- Pipeline Functions ---------- //
 /**
  * @brief msg
@@ -148,6 +156,8 @@ void printInstruction(Instruction);
 void printPath(void);
 
 // ---------- Tool Functions ---------- //
+void init();
+
 /**
  * @brief msg
  * @param type name msg
@@ -155,6 +165,11 @@ void printPath(void);
  */
 int rightMostBits(int orig, int numBits);
 
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void parseInput();
 
 // ---------- Debug Functions ---------- //
@@ -306,8 +321,8 @@ Instruction serializeInstruction(int ins)
 
 void printInstruction(Instruction ins)
 {
-    printf("Name: %s\nType: %c\nRS: %d\nRT: %d\nRD: %d\nImmediate: %d\nBranch Target: %d\
-    \nOpCode: %d\nFunc: %d\nShamt: %d\n", ins.name,ins.type, ins.rs, ins.rt, ins.rd, ins.imm,
+    printf("Name: %s\tType: %c\tRS: %d\tRT: %d\tRD: %d\tImmediate: %d\tBranch Target: %d\
+    \tOpCode: %d\tFunc: %d\tShamt: %d\n", ins.name,ins.type, ins.rs, ins.rt, ins.rd, ins.imm,
     ins.bt, ins.opCode, ins.func, ins.shamt);
 }
 
@@ -346,6 +361,15 @@ void printPath()
 }
 
 // ---------- Tool Implementations ---------- //
+void init(void)
+{
+    int i;
+    for(i = 0; i < NUM_REGISTERS; i++)
+    {
+        REGFILE[i] = 0;
+    }
+}
+
 int rightMostBits(int orig, int numBits)
 {
     int i;
@@ -363,14 +387,27 @@ void parseInput(void)
 {
     char lineBuffer[256];
 
+    // Parse Instructions
     int i = 0;
     while(fgets(lineBuffer,MAX_INSTRUCTIONS, stdin))
     {
+        
         INS[i] = serializeInstruction(atoi(lineBuffer));
         if(INS[i].func == OP_HALT)
         {
             break;
         }
+        i++;
+    }
+
+    // Skip Blank Line
+    fgets(lineBuffer,MAX_INSTRUCTIONS, stdin);
+
+    // Parse Data Segments
+    i = 0;
+    while(fgets(lineBuffer,MAX_INSTRUCTIONS, stdin))
+    {
+        DATAMEM[i] = atoi(lineBuffer);
         i++;
     }
 }
@@ -389,11 +426,14 @@ void bin(unsigned n)
  *----------------------------------*/
 int main()
 {
-    // printPath();
-    // int orig = 17387552;
-    // Instruction s = serializeInstruction(orig);
-    // printInstruction(s);
+    // Initialize Register Values
+    init();
 
+    // Parse MIPS Machine Code from STDIN to Global Arrays
     parseInput();
-    printInstructionList(INS);
+
+    // Print Instructions (Debug)
+    if( DEBUG_MODE ) printInstructionList(INS);
+
+    printPath();
 }
