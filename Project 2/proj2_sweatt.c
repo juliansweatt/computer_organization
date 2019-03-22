@@ -62,6 +62,69 @@ typedef struct
     int shamt;           // Shift
 } Instruction;
 
+/**
+ * @struct P_If_Id
+ * @brief Pipeline IF/ID
+ */
+typedef struct
+{
+    Instruction instruction;    // Instruction
+    int pc4;                    // PC + 4
+} P_If_Id;
+
+/**
+ * @struct P_Id_Ex
+ * @brief Pipeline ID/EX
+ */
+typedef struct
+{
+    Instruction instruction;    // Instruction
+    int pc4;                    // PC + 4
+    int bt;                     // Branch Target
+    int rs;                     // RS Register
+    int rt;                     // RT Register
+    int rd;                     // RD Register
+    int read1;                  // Data Read 1
+    int read2;                  // Data Read 2
+    int imm;                    // Immediate
+} P_Id_Ex;
+
+/**
+ * @struct P_Ex_Mem
+ * @brief Pipeline EX/MEM
+ */
+typedef struct
+{
+    Instruction instruction;    // Instruction
+    int aluRes;                 // ALU Result
+    int wd;                     // Write Data
+    int wr;                     // Write Register
+} P_Ex_Mem;
+
+/**
+ * @struct P_Mem_Wb
+ * @brief Pipeline MEM/WB
+ */
+typedef struct
+{
+    Instruction instruction;    // Instruction
+    int writeFromMem;           // Write Data from Memory
+    int writeFromAlu;           // Write Data from ALU
+    int writeRegister;          // Target Register Address
+} P_Mem_Wb;
+
+/**
+ * @struct State
+ * @brief Pipeline State
+ */
+typedef struct
+{
+    P_If_Id stage1;
+    P_Id_Ex stage2;
+    P_Ex_Mem stage3;
+    P_Mem_Wb stage4;
+} State;
+
 // ---------- Instruction Functions ---------- //
 /**
  * @brief msg
@@ -186,7 +249,7 @@ void bin(unsigned n);
 Instruction INS[100];
 int REGFILE[NUM_REGISTERS];
 int DATAMEM[DATA_MEM];
-int ProgCounter;
+int PC;
 
 /*----------------------------------*
  *          IMPLEMENTATIONS         *
@@ -343,7 +406,7 @@ void printPath()
     int i;
 
     // Program Counter
-    printf("\tPC = %d\n", ProgCounter);
+    printf("\tPC = %d\n", PC);
 
     // Data Memory
     printf("\tData Memory:\n");
@@ -363,11 +426,21 @@ void printPath()
 // ---------- Tool Implementations ---------- //
 void init(void)
 {
+    // Initialize Registers
     int i;
     for(i = 0; i < NUM_REGISTERS; i++)
     {
         REGFILE[i] = 0;
     }
+
+    // Initialize Data Memory
+    for(i = 0; i < DATA_MEM; i++)
+    {
+        DATAMEM[i] = 0;
+    }
+
+    // Initialize Program Counter
+    PC = 0; 
 }
 
 int rightMostBits(int orig, int numBits)
