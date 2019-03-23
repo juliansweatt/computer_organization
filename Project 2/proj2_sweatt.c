@@ -201,6 +201,20 @@ Instruction serializeInstruction(int ins);
  * @param type name msg
  * @return type msg
  */
+char* translateRegister(int reg);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void printInstructionFormatted(Instruction ins);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void printInstruction(Instruction);
 
 /**
@@ -216,7 +230,7 @@ void printInstructionList(Instruction ins[MAX_INSTRUCTIONS]);
  * @param type name msg
  * @return type msg
  */
-void printPath(void);
+void printState(State s);
 
 // ---------- Tool Functions ---------- //
 void init();
@@ -247,6 +261,8 @@ void bin(unsigned n);
  *              GLOBALS             *
  *----------------------------------*/
 Instruction INS[100];
+State currentState;
+State newState;
 int REGFILE[NUM_REGISTERS];
 int DATAMEM[DATA_MEM];
 int PC;
@@ -343,7 +359,7 @@ char* getName(int ins)
         }
     }
 
-    return "???"; // Invalid Input
+    return "ERR"; // Invalid Input
 }
 
 Instruction serializeInstruction(int ins)
@@ -382,6 +398,72 @@ Instruction serializeInstruction(int ins)
     return SerIns;
 }
 
+char* translateRegister(int reg)
+{
+    switch(reg)
+    {
+        case 0: return "$0";        // Zero/Null Register Constant
+        case 1: return "$at";       // Assembler Temporary
+        case 2: return "$v0";       // Function Results (0)
+        case 3: return "$v1";       // Function Results (1)
+        case 4: return "$a0";       // Arguments (0)
+        case 5: return "$a1";       // Arguments (1)
+        case 6: return "$a2";       // Arguments (2)
+        case 7: return "$a3";       // Arguments (3)
+        case 8: return "$t0";       // Temporaries (0)
+        case 9: return "$t1";       // Temporaries (1)
+        case 10: return "$t2";      // Temporaries (2)
+        case 11: return "$t3";      // Temporaries (3)
+        case 12: return "$t4";      // Temporaries (4)
+        case 13: return "$t5";      // Temporaries (5)
+        case 14: return "$t6";      // Temporaries (6)
+        case 15: return "$t7";      // Temporaries (7)
+        case 16: return "$s0";      // Save (0)
+        case 17: return "$s1";      // Save (1)
+        case 18: return "$s2";      // Save (2)
+        case 19: return "$s3";      // Save (3)
+        case 20: return "$s4";      // Save (4)
+        case 21: return "$s5";      // Save (5)
+        case 22: return "$s6";      // Save (6)
+        case 23: return "$s7";      // Save (7)
+        case 24: return "$t8";      // Temporaries (8)
+        case 25: return "$t9";      // Temporaries (9)
+        case 26: return "$k0";      // Kernal (0)
+        case 27: return "$k1";      // Kernal (1)
+        case 28: return "$gp";      // Global Pointer
+        case 29: return "$sp";      // Stack Pointer
+        case 30: return "$fp";      // Frame Pointer
+        case 31: return "$ra";      // Return Address
+        default: return "ERR";      // Invalid Register Error
+    }
+}
+
+void printInstructionFormatted(Instruction ins)
+{
+    if(strcmp(ins.name, "add") == 0)
+        printf("%s %s,%s,%s",ins.name, translateRegister(ins.rd),translateRegister(ins.rs), translateRegister(ins.rt));
+    else if(strcmp(ins.name, "sub") == 0)
+        printf("%s %s,%s,%s", ins.name, translateRegister(ins.rd), translateRegister(ins.rs), translateRegister(ins.rt));
+    else if(strcmp(ins.name, "sll") == 0)
+        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rd),translateRegister(ins.rt), ins.imm);
+    else if(strcmp(ins.name, "noop") == 0)
+        printf("%s", ins.name);
+    else if(strcmp(ins.name, "halt") == 0)
+        printf("%s", ins.name);
+    else if(strcmp(ins.name, "lw") == 0)
+        printf("%s %s, %d(%s)", ins.name, translateRegister(ins.rt), ins.imm, translateRegister(ins.rs));
+    else if(strcmp(ins.name, "sw") == 0)
+        printf("%s %s, %d(%s)", ins.name, translateRegister(ins.rt), ins.imm, translateRegister(ins.rs));
+    else if(strcmp(ins.name, "andi") == 0)
+        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rt),translateRegister(ins.rs), ins.imm);
+    else if(strcmp(ins.name, "ori") == 0)
+        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rt), translateRegister(ins.rs), ins.imm);
+    else if(strcmp(ins.name, "bne") == 0)
+        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rs), translateRegister(ins.rt), ins.imm);
+    else
+        printf("[Error: Unsupported Instruction]");
+}
+
 void printInstruction(Instruction ins)
 {
     printf("Name: %s\tType: %c\tRS: %d\tRT: %d\tRD: %d\tImmediate: %d\tBranch Target: %d\
@@ -396,11 +478,13 @@ void printInstructionList(Instruction ins[MAX_INSTRUCTIONS])
     for( i = 0; ins[i-1].func !=  OP_HALT; i++)
     {
         printInstruction(ins[i]);
+        printInstructionFormatted(ins[i]);
+        printf("\n");
     }
 }
 
 // ---------- Pipeline Implementations ---------- //
-void printPath()
+void printState(State s)
 {
     // Iterator Declaration
     int i;
@@ -421,6 +505,41 @@ void printPath()
     {
         printf("\t\tregFile[%d] = %d\t\tregFile[%d] = %d\n", i, REGFILE[i], (i+(NUM_REGISTERS/2)),REGFILE[i+(NUM_REGISTERS/2)]);
     }
+
+    // Print Pipe Stage 1 (IF/ID)
+    printf("\tIF/ID:\n");
+    printf("\t\tInstruction: ");
+    printInstructionFormatted(s.stage1.instruction);
+    printf("\n\t\tPCPlus4: %d\n", s.stage1.pc4);
+
+    // Print Pipe Stage 2 (ID/EX)
+    printf("\tID/EX:\n");
+    printf("\t\tInstruction: ");
+    printInstructionFormatted(s.stage2.instruction);
+    printf("\n\t\tPCPlus4: %d\n", s.stage2.pc4);
+    printf("\t\tbranchTarget: %d\n", s.stage2.bt);
+    printf("\t\treadData1: %d\n", s.stage2.read1);
+    printf("\t\treadData2: %d\n", s.stage2.read2);
+    printf("\t\timmed: %d\n", s.stage2.imm);
+    printf("\t\trs: %s\n", translateRegister(s.stage2.rs));
+    printf("\t\trt: %s\n", translateRegister(s.stage2.rt));
+    printf("\t\trd: %s\n", translateRegister(s.stage2.rd));
+
+    // Print Pipe Stage 3 (EX/MEM)
+    printf("\tEX/MEM:\n");
+    printf("\t\tInstruction: ");
+    printInstructionFormatted(s.stage3.instruction);
+    printf("\n\t\taluResult: %d\n", s.stage3.aluRes);
+    printf("\t\twriteDataReg: %d\n", s.stage3.wd);
+    printf("\t\twriteReg: %s\n", translateRegister(s.stage3.wr));
+
+    // Print Pipe Stage 4 (MEM/WB)
+    printf("\tMEM/WB\n");
+    printf("\t\tInstruction: ");
+    printInstructionFormatted(s.stage4.instruction);
+    printf("\n\t\twriteDataMem: %d\n", s.stage4.writeFromMem);
+    printf("\t\twriteDataALU: %d\n", s.stage4.writeFromAlu);
+    printf("\t\twriteReg: %d\n", s.stage4.writeFromMem);
 }
 
 // ---------- Tool Implementations ---------- //
@@ -508,5 +627,12 @@ int main()
     // Print Instructions (Debug)
     if( DEBUG_MODE ) printInstructionList(INS);
 
-    printPath();
+    // TEST
+    currentState.stage1.instruction = INS[3];
+    currentState.stage2.instruction = INS[3];
+    currentState.stage3.instruction = INS[3];
+    currentState.stage4.instruction = INS[3];
+    // - Test
+
+    printState(currentState);
 }
