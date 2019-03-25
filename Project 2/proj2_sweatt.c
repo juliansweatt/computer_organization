@@ -251,6 +251,20 @@ void addInstruction(Instruction i);
  * @param type name msg
  * @return type msg
  */
+void cycle(void);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void runProgram(void);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void initStage1(P_If_Id *s);
 
 /**
@@ -592,7 +606,7 @@ void printInstructionFormatted(Instruction ins)
     else if(strcmp(ins.name, "sll") == 0)
         printf("%s %s,%s,%d", ins.name, translateRegister(ins.rd),translateRegister(ins.rt), ins.imm);
     else if(strcmp(ins.name, "noop") == 0)
-        printf("%s", ins.name);
+        printf("%s", "NOOP");
     else if(strcmp(ins.name, "halt") == 0)
         printf("%s", ins.name);
     else if(strcmp(ins.name, "lw") == 0)
@@ -637,6 +651,72 @@ void addInstruction(Instruction i)
     newState.stage1.pc4 = currentState.stage1.pc4 + 4;
 
     if( DEBUG_MODE ) printf("Done Adding Instruction");
+}
+
+void cycle(void)
+{
+    // Push Instructions Onward
+    deepCopyInstruction(&newState.stage2.instruction, currentState.stage1.instruction);
+    deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
+    deepCopyInstruction(&newState.stage4.instruction, currentState.stage3.instruction);
+
+    // Increment PC
+    PC += 4;
+    newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+
+    // Populate ID/EX Stage from Instruction (Stage 2)
+    newState.stage2.rs = newState.stage2.instruction.rs;
+    newState.stage2.rt = newState.stage2.instruction.rt;
+    newState.stage2.rd = newState.stage2.instruction.rd;
+    newState.stage2.imm = newState.stage2.instruction.imm;
+    // @todo BT, RD1, RD2
+
+    // Populate EX/MEM Stage (Stage 3) @todo
+    // Populate MEM/WB Stage (Stage 4) @todo
+}
+
+void runProgram(void)
+{
+    // Initialization Cycle
+    printf("********************\n");
+    printf("State at the beginning of cycle 1\n");
+    printState(currentState);
+
+    int i; 
+    int haltInstruction = 0;
+
+    for( i = 0; currentState.stage4.instruction.func !=  OP_HALT; i++)
+    {
+        // Reset New State
+        initState(&newState);
+
+        // Add New instruction
+        if(haltInstruction == 0)
+        {
+            if(INS[i].func ==  OP_HALT)
+            {
+                haltInstruction = 1;
+            }
+            addInstruction(INS[i]);
+        }
+        else
+        {
+            addInstruction(newInstruction());
+        }
+
+        // Execute One Pipeline Cycle
+        cycle();
+
+        // Make the New State the Current State
+        deepCopyState(&currentState, newState);
+
+        // Print Cycle Header
+        printf("********************\n");
+        printf("State at the beginning of cycle %d\n", i+2);
+
+        // Print State
+        printState(currentState);
+    }
 }
 
 void initStage1(P_If_Id *s)
@@ -874,10 +954,5 @@ int main()
     // Print Instructions (Debug)
     if( DEBUG_MODE ) printInstructionList(INS);
 
-    // TEST
-    addInstruction(INS[0]);
-    deepCopyState(&currentState, newState);
-    // - Test
-
-    printState(currentState);
+    runProgram();
 }
