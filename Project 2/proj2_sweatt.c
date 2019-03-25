@@ -226,6 +226,13 @@ char* translateRegister(int reg);
  * @param type name msg
  * @return type msg
  */
+int getWriteRegister(Instruction i);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void deepCopyInstruction(Instruction *c, Instruction o); // (c)lone, (o)riginal;
 
 /**
@@ -256,6 +263,34 @@ void printInstructionList(Instruction ins[MAX_INSTRUCTIONS]);
  * @return type msg
  */
 void addInstruction(Instruction i);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int aluOp(Instruction i);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int readRegister(int offset, int reg);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+int readMemory(int address);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void writeToRegister(P_Mem_Wb s);
 
 /**
  * @brief msg
@@ -383,6 +418,7 @@ State newState;
 int REGFILE[NUM_REGISTERS];
 int DATAMEM[DATA_MEM];
 int PC;
+int num_instructions; 
 
 /*----------------------------------*
  *          IMPLEMENTATIONS         *
@@ -573,6 +609,32 @@ char* translateRegister(int reg)
     }
 }
 
+int getWriteRegister(Instruction i) // @todo
+{
+    if(strcmp(i.name, "add") == 0)
+        return 0;
+    else if(strcmp(i.name, "sub") == 0)
+        return 0;
+    else if(strcmp(i.name, "sll") == 0)
+        return 0;
+    else if(strcmp(i.name, "noop") == 0)
+        return 0;
+    else if(strcmp(i.name, "halt") == 0)
+        return 0;
+    else if(strcmp(i.name, "lw") == 0)
+        return i.rt;
+    else if(strcmp(i.name, "sw") == 0)
+        return 0;
+    else if(strcmp(i.name , "andi") == 0)
+        return 0;
+    else if(strcmp(i.name, "ori") == 0)
+        return i.rt;
+    else if(strcmp(i.name, "bne") == 0)
+        return 0;
+    else
+        return 0;
+}
+
 void deepCopyInstruction(Instruction *c, Instruction o)
 {
     c->bt = o.bt;
@@ -665,8 +727,81 @@ void addInstruction(Instruction i)
     if( DEBUG_MODE ) printf("Done Adding Instruction");
 }
 
+int aluOp(Instruction i) //@todo
+{
+    if(strcmp(i.name, "add") == 0)
+        return 0;
+    else if(strcmp(i.name, "sub") == 0)
+        return 0;
+    else if(strcmp(i.name, "sll") == 0)
+        return 0;
+    else if(strcmp(i.name, "noop") == 0)
+        return 0;
+    else if(strcmp(i.name, "halt") == 0)
+        return 0;
+    else if(strcmp(i.name, "lw") == 0)
+        return readRegister(i.imm, i.rs);
+    else if(strcmp(i.name, "sw") == 0)
+        return 0;
+    else if(strcmp(i.name , "andi") == 0)
+        return 0;
+    else if(strcmp(i.name, "ori") == 0)
+        return i.rs | i.imm;
+    else if(strcmp(i.name, "bne") == 0)
+        return 0;
+    else
+        return 0;
+}
+
+int readRegister(int offset, int reg)
+{
+    int target = reg+(offset/4);
+    
+    if(target > -1 && target < NUM_REGISTERS)
+        return REGFILE[target];
+    else
+        return 0;
+}
+
+int readMemory(int address)
+{
+    int target = address - (num_instructions*4);
+    if(target > -1 && target < DATA_MEM)
+        return DATAMEM[target];
+    else
+        return 0;
+}
+
+void writeToRegister(P_Mem_Wb s)
+{
+    if(strcmp(s.instruction.name, "add") == 0)
+        return;
+    else if(strcmp(s.instruction.name, "sub") == 0)
+        return;
+    else if(strcmp(s.instruction.name, "sll") == 0)
+        return;
+    else if(strcmp(s.instruction.name, "noop") == 0)
+        return;
+    else if(strcmp(s.instruction.name, "halt") == 0)
+        return;
+    else if(strcmp(s.instruction.name, "lw") == 0)
+        REGFILE[s.writeRegister] = s.writeFromMem;
+    else if(strcmp(s.instruction.name, "sw") == 0)
+        return;
+    else if(strcmp(s.instruction.name , "andi") == 0)
+        return;
+    else if(strcmp(s.instruction.name, "ori") == 0)
+        REGFILE[s.writeRegister] = s.writeFromAlu;
+    else if(strcmp(s.instruction.name, "bne") == 0)
+        return;
+    else
+        return;
+}
+
 void cycle(void)
 {
+    writeToRegister(currentState.stage4);
+
     // Push Instructions Onward
     deepCopyInstruction(&newState.stage2.instruction, currentState.stage1.instruction);
     deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
@@ -686,7 +821,13 @@ void cycle(void)
     // @todo BT, RD1, RD2
 
     // Populate EX/MEM Stage (Stage 3) @todo
+    newState.stage3.aluRes = aluOp(newState.stage3.instruction);
+    newState.stage3.wr = getWriteRegister(newState.stage3.instruction);
+
     // Populate MEM/WB Stage (Stage 4) @todo
+    newState.stage4.writeFromMem = readMemory(currentState.stage3.aluRes);
+    newState.stage4.writeFromAlu = currentState.stage3.aluRes;
+    newState.stage4.writeRegister = currentState.stage3.wr;
 }
 
 void runProgram(void)
@@ -875,12 +1016,15 @@ void printState(State s)
     printInstructionFormatted(s.stage4.instruction);
     printf("\n\t\twriteDataMem: %d\n", s.stage4.writeFromMem);
     printf("\t\twriteDataALU: %d\n", s.stage4.writeFromAlu);
-    printf("\t\twriteReg: %d\n", s.stage4.writeFromMem);
+    printf("\t\twriteReg: %s\n", translateRegister(s.stage4.writeRegister));
 }
 
 // ---------- Tool Implementations ---------- //
 void init(void)
 {
+    // Initialize Globals
+    num_instructions = 0;
+
     // Initialize Registers
     int i;
     for(i = 0; i < NUM_REGISTERS; i++)
@@ -923,6 +1067,8 @@ void parseInput(void)
     int i = 0;
     while(fgets(lineBuffer,MAX_INSTRUCTIONS, stdin))
     {
+        num_instructions++;
+
         INS[i] = serializeInstruction(atoi(lineBuffer));
         if(INS[i].func == OP_HALT)
         {
