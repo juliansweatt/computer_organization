@@ -131,6 +131,13 @@ typedef struct
  * @param type name msg
  * @return type msg
  */
+Instruction newInstruction(void);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 int getOpCode(int ins);
 
 /**
@@ -208,6 +215,13 @@ char* translateRegister(int reg);
  * @param type name msg
  * @return type msg
  */
+void deepCopyInstruction(Instruction *c, Instruction o); // (c)lone, (o)riginal;
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void printInstructionFormatted(Instruction ins);
 
 /**
@@ -225,6 +239,83 @@ void printInstruction(Instruction);
 void printInstructionList(Instruction ins[MAX_INSTRUCTIONS]);
 
 // ---------- Pipeline Functions ---------- //
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void addInstruction(Instruction i);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void initStage1(P_If_Id *s);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void initStage2(P_Id_Ex *s);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void initStage3(P_Ex_Mem *s);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void initStage4(P_Mem_Wb *s);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void initState(State *s);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void deepCopyStage1(P_If_Id *c, P_If_Id o);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void deepCopyStage2(P_Id_Ex *c, P_Id_Ex o);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void deepCopyStage3(P_Ex_Mem *c, P_Ex_Mem o);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void deepCopyStage4(P_Mem_Wb *c, P_Mem_Wb o);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
+void deepCopyState(State *c, State o);
+
 /**
  * @brief msg
  * @param type name msg
@@ -271,6 +362,24 @@ int PC;
  *          IMPLEMENTATIONS         *
  *----------------------------------*/
 // ---------- Instruction Implementations ---------- //
+Instruction newInstruction(void)
+{
+    Instruction ins;
+
+    ins.bt = 0;
+    ins.func = 0;
+    ins.imm = 0;
+    ins.name = "noop";
+    ins.opCode = 0;
+    ins.rd = 0;
+    ins.rs = 0;
+    ins.rt = 0;
+    ins.shamt = 0;
+    ins.type = 0;
+    
+    return ins;
+}
+
 int getOpCode(int ins)
 {
     return rightMostBits((ins >> 26),6);
@@ -438,6 +547,42 @@ char* translateRegister(int reg)
     }
 }
 
+void deepCopyInstruction(Instruction *c, Instruction o)
+{
+    c->bt = o.bt;
+    c->func = o.func;
+    c->imm = o.imm;
+    c->opCode = o.opCode;
+    c->rd = o.rd;
+    c->rs = o.rs;
+    c->rt = o.rt;
+    c->shamt = o.shamt;
+    c->type = o.type;
+
+    if(strcmp(o.name, "add") == 0)
+        c->name = "add";
+    else if(strcmp(o.name, "sub") == 0)
+        c->name = "sub";
+    else if(strcmp(o.name, "sll") == 0)
+        c->name = "sll";
+    else if(strcmp(o.name, "noop") == 0)
+        c->name = "noop";
+    else if(strcmp(o.name, "halt") == 0)
+        c->name = "halt";
+    else if(strcmp(o.name, "lw") == 0)
+        c->name = "lw";
+    else if(strcmp(o.name, "sw") == 0)
+        c->name = "sw";
+    else if(strcmp(o.name , "andi") == 0)
+        c->name = "andi";
+    else if(strcmp(o.name, "ori") == 0)
+        c->name = "ori";
+    else if(strcmp(o.name, "bne") == 0)
+        c->name = "bne";
+    else
+        c->name = "ERR";
+}
+
 void printInstructionFormatted(Instruction ins)
 {
     if(strcmp(ins.name, "add") == 0)
@@ -484,6 +629,102 @@ void printInstructionList(Instruction ins[MAX_INSTRUCTIONS])
 }
 
 // ---------- Pipeline Implementations ---------- //
+void addInstruction(Instruction i)
+{
+    if( DEBUG_MODE ) printf("Adding Instruction %s", i.name);
+
+    deepCopyInstruction(&newState.stage1.instruction, i);
+    newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+
+    if( DEBUG_MODE ) printf("Done Adding Instruction");
+}
+
+void initStage1(P_If_Id *s)
+{
+    s->instruction = newInstruction();
+    s->pc4 = 0;
+}
+
+void initStage2(P_Id_Ex *s)
+{
+    s->bt = 0;
+    s->imm = 0;
+    s->pc4 = 0;
+    s->rd = 0;
+    s->rs = 0;
+    s->rt = 0;
+    s->read1 = 0;
+    s->read2 = 0;
+    s->instruction = newInstruction();
+}
+
+void initStage3(P_Ex_Mem *s)
+{
+    s->aluRes = 0;
+    s->wd = 0;
+    s->wr = 0;
+    s->instruction = newInstruction();
+}
+
+void initStage4(P_Mem_Wb *s)
+{
+    s->writeFromAlu = 0;
+    s->writeFromMem = 0;
+    s->writeRegister = 0;
+    s->instruction = newInstruction();
+}
+
+void initState(State *s)
+{
+    initStage1(&s->stage1);
+    initStage2(&s->stage2);
+    initStage3(&s->stage3);
+    initStage4(&s->stage4);
+}
+
+void deepCopyStage1(P_If_Id *c, P_If_Id o)
+{
+    deepCopyInstruction(&c->instruction, o.instruction);
+    c->pc4 = o.pc4;
+}
+
+void deepCopyStage2(P_Id_Ex *c, P_Id_Ex o)
+{
+    c->bt = o.bt;
+    c->imm = o.imm;
+    c->pc4 = o.pc4;
+    c->rd = o.rd;
+    c->rs = o.rs;
+    c->rt = o.rt;
+    c->read1 = o.read1;
+    c->read2 = o.read2;
+    deepCopyInstruction(&c->instruction, o.instruction);
+}
+
+void deepCopyStage3(P_Ex_Mem *c, P_Ex_Mem o)
+{
+    c->aluRes = o.aluRes;
+    c->wd = o.wd;
+    c->wr = o.wr;
+    deepCopyInstruction(&c->instruction, o.instruction);
+}
+
+void deepCopyStage4(P_Mem_Wb *c, P_Mem_Wb o)
+{
+    c->writeFromAlu = o.writeFromAlu;
+    c->writeFromMem = o.writeFromMem;
+    c->writeRegister = o.writeRegister;
+    deepCopyInstruction(&c->instruction, o.instruction);
+}
+
+void deepCopyState(State *c, State o)
+{
+    deepCopyStage1(&c->stage1, o.stage1);
+    deepCopyStage2(&c->stage2, o.stage2);
+    deepCopyStage3(&c->stage3, o.stage3);
+    deepCopyStage4(&c->stage4 ,o.stage4);
+}
+
 void printState(State s)
 {
     // Iterator Declaration
@@ -515,7 +756,7 @@ void printState(State s)
     // Print Pipe Stage 2 (ID/EX)
     printf("\tID/EX:\n");
     printf("\t\tInstruction: ");
-    printInstructionFormatted(s.stage2.instruction);
+    printInstructionFormatted(s.stage2.instruction); //ISSUE
     printf("\n\t\tPCPlus4: %d\n", s.stage2.pc4);
     printf("\t\tbranchTarget: %d\n", s.stage2.bt);
     printf("\t\treadData1: %d\n", s.stage2.read1);
@@ -560,6 +801,10 @@ void init(void)
 
     // Initialize Program Counter
     PC = 0; 
+
+    // Initialize States
+    initState(&currentState);
+    initState(&newState);
 }
 
 int rightMostBits(int orig, int numBits)
@@ -622,16 +867,16 @@ int main()
     init();
 
     // Parse MIPS Machine Code from STDIN to Global Arrays
+    if( DEBUG_MODE ) printf("Input Parse Begining\n");
     parseInput();
+    if( DEBUG_MODE ) printf("Input Parse Complete\n");
 
     // Print Instructions (Debug)
     if( DEBUG_MODE ) printInstructionList(INS);
 
     // TEST
-    currentState.stage1.instruction = INS[3];
-    currentState.stage2.instruction = INS[3];
-    currentState.stage3.instruction = INS[3];
-    currentState.stage4.instruction = INS[3];
+    addInstruction(INS[0]);
+    deepCopyState(&currentState, newState);
     // - Test
 
     printState(currentState);
