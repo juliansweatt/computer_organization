@@ -33,7 +33,7 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 #define MAX_INSTRUCTIONS 100
 #define MAX_INS_NAME_LENGTH 5
 #define NUM_REGISTERS 32
@@ -664,11 +664,13 @@ void cycle(void)
     PC += 4;
     newState.stage1.pc4 = currentState.stage1.pc4 + 4;
 
-    // Populate ID/EX Stage from Instruction (Stage 2)
+    // Populate ID/EX Stage (Stage 2)
     newState.stage2.rs = newState.stage2.instruction.rs;
     newState.stage2.rt = newState.stage2.instruction.rt;
     newState.stage2.rd = newState.stage2.instruction.rd;
     newState.stage2.imm = newState.stage2.instruction.imm;
+    newState.stage2.pc4 = currentState.stage1.pc4;
+    
     // @todo BT, RD1, RD2
 
     // Populate EX/MEM Stage (Stage 3) @todo
@@ -836,7 +838,7 @@ void printState(State s)
     // Print Pipe Stage 2 (ID/EX)
     printf("\tID/EX:\n");
     printf("\t\tInstruction: ");
-    printInstructionFormatted(s.stage2.instruction); //ISSUE
+    printInstructionFormatted(s.stage2.instruction);
     printf("\n\t\tPCPlus4: %d\n", s.stage2.pc4);
     printf("\t\tbranchTarget: %d\n", s.stage2.bt);
     printf("\t\treadData1: %d\n", s.stage2.read1);
