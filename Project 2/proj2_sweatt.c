@@ -276,7 +276,7 @@ int aluOp(Instruction i);
  * @param type name msg
  * @return type msg
  */
-int readRegister(int offset, int reg);
+int readRegister(int reg);
 
 /**
  * @brief msg
@@ -740,7 +740,7 @@ int aluOp(Instruction i) //@todo
     else if(strcmp(i.name, "halt") == 0)
         return 0;
     else if(strcmp(i.name, "lw") == 0)
-        return readRegister(i.imm, i.rs);
+        return readRegister(i.rs)+i.imm;
     else if(strcmp(i.name, "sw") == 0)
         return 0;
     else if(strcmp(i.name , "andi") == 0)
@@ -753,9 +753,9 @@ int aluOp(Instruction i) //@todo
         return 0;
 }
 
-int readRegister(int offset, int reg)
+int readRegister(int reg)
 {
-    int target = reg+(offset/4);
+    int target = reg;
     
     if(target > -1 && target < NUM_REGISTERS)
         return REGFILE[target];
@@ -765,7 +765,7 @@ int readRegister(int offset, int reg)
 
 int readMemory(int address)
 {
-    int target = address - (num_instructions*4);
+    int target = (address - (num_instructions*4))/4;
     if(target > -1 && target < DATA_MEM)
         return DATAMEM[target];
     else
