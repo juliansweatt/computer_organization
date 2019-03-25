@@ -33,7 +33,7 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #define MAX_INSTRUCTIONS 100
 #define MAX_INS_NAME_LENGTH 5
 #define NUM_REGISTERS 32
@@ -124,6 +124,17 @@ typedef struct
     P_Ex_Mem stage3;
     P_Mem_Wb stage4;
 } State;
+
+/**
+ * @struct BranchPredictor
+ * @brief Branch Predictor
+ */
+typedef struct
+{
+    int pc;         // Program Counter
+    int bt;         // Branch Target
+    State state;    // State of Branch
+} BranchPredictor;
 
 // ---------- Instruction Functions ---------- //
 /**
@@ -365,7 +376,8 @@ void bin(unsigned n);
 /*----------------------------------*
  *              GLOBALS             *
  *----------------------------------*/
-Instruction INS[100];
+Instruction INS[MAX_INSTRUCTIONS];
+BranchPredictor BRANCHES[MAX_INSTRUCTIONS];
 State currentState;
 State newState;
 int REGFILE[NUM_REGISTERS];
@@ -431,7 +443,7 @@ int getImmediate(int ins)
 
 char getType(int ins)
 {
-    if(getFunc(ins) == OP_NOOP || getFunc(ins) == OP_HALT)
+    if(getOpCode(ins) == 0 && (getFunc(ins) == OP_NOOP || getFunc(ins) == OP_HALT))
     {
         // Project Unique Op-Codes
         return 'X';
@@ -687,6 +699,7 @@ void runProgram(void)
     int i; 
     int haltInstruction = 0;
 
+    // Iterate Through Instructions
     for( i = 0; currentState.stage4.instruction.func !=  OP_HALT; i++)
     {
         // Reset New State
@@ -910,12 +923,12 @@ void parseInput(void)
     int i = 0;
     while(fgets(lineBuffer,MAX_INSTRUCTIONS, stdin))
     {
-        
         INS[i] = serializeInstruction(atoi(lineBuffer));
         if(INS[i].func == OP_HALT)
         {
             break;
         }
+
         i++;
     }
 
