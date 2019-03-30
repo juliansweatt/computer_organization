@@ -33,7 +33,7 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 #define MAX_INSTRUCTIONS 100
 #define MAX_INS_NAME_LENGTH 5
 #define NUM_REGISTERS 32
@@ -233,6 +233,13 @@ int getWriteRegister(Instruction i);
  * @param type name msg
  * @return type msg
  */
+int getReadData(Instruction ins, int n);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void deepCopyInstruction(Instruction *c, Instruction o); // (c)lone, (o)riginal;
 
 /**
@@ -415,6 +422,7 @@ Instruction INS[MAX_INSTRUCTIONS];
 BranchPredictor BRANCHES[MAX_INSTRUCTIONS];
 State currentState;
 State newState;
+char HALTING;
 int REGFILE[NUM_REGISTERS];
 int DATAMEM[DATA_MEM];
 int PC;
@@ -564,6 +572,11 @@ Instruction serializeInstruction(int ins)
     else if(SerIns.type == 'X')
     {
         SerIns.func = getFunc(ins);
+        SerIns.imm = getFunc(ins);
+        SerIns.rs = 0;
+        SerIns.rt = 0;
+        SerIns.rd = 0;
+        SerIns.shamt = 0;
     }
 
     return SerIns;
@@ -573,46 +586,46 @@ char* translateRegister(int reg)
 {
     switch(reg)
     {
-        case 0: return "$0";        // Zero/Null Register Constant
-        case 1: return "$at";       // Assembler Temporary
-        case 2: return "$v0";       // Function Results (0)
-        case 3: return "$v1";       // Function Results (1)
-        case 4: return "$a0";       // Arguments (0)
-        case 5: return "$a1";       // Arguments (1)
-        case 6: return "$a2";       // Arguments (2)
-        case 7: return "$a3";       // Arguments (3)
-        case 8: return "$t0";       // Temporaries (0)
-        case 9: return "$t1";       // Temporaries (1)
-        case 10: return "$t2";      // Temporaries (2)
-        case 11: return "$t3";      // Temporaries (3)
-        case 12: return "$t4";      // Temporaries (4)
-        case 13: return "$t5";      // Temporaries (5)
-        case 14: return "$t6";      // Temporaries (6)
-        case 15: return "$t7";      // Temporaries (7)
-        case 16: return "$s0";      // Save (0)
-        case 17: return "$s1";      // Save (1)
-        case 18: return "$s2";      // Save (2)
-        case 19: return "$s3";      // Save (3)
-        case 20: return "$s4";      // Save (4)
-        case 21: return "$s5";      // Save (5)
-        case 22: return "$s6";      // Save (6)
-        case 23: return "$s7";      // Save (7)
-        case 24: return "$t8";      // Temporaries (8)
-        case 25: return "$t9";      // Temporaries (9)
-        case 26: return "$k0";      // Kernal (0)
-        case 27: return "$k1";      // Kernal (1)
-        case 28: return "$gp";      // Global Pointer
-        case 29: return "$sp";      // Stack Pointer
-        case 30: return "$fp";      // Frame Pointer
-        case 31: return "$ra";      // Return Address
+        case 0: return "0";        // Zero/Null Register Constant
+        case 1: return "at";       // Assembler Temporary
+        case 2: return "v0";       // Function Results (0)
+        case 3: return "v1";       // Function Results (1)
+        case 4: return "a0";       // Arguments (0)
+        case 5: return "a1";       // Arguments (1)
+        case 6: return "a2";       // Arguments (2)
+        case 7: return "a3";       // Arguments (3)
+        case 8: return "t0";       // Temporaries (0)
+        case 9: return "t1";       // Temporaries (1)
+        case 10: return "t2";      // Temporaries (2)
+        case 11: return "t3";      // Temporaries (3)
+        case 12: return "t4";      // Temporaries (4)
+        case 13: return "t5";      // Temporaries (5)
+        case 14: return "t6";      // Temporaries (6)
+        case 15: return "t7";      // Temporaries (7)
+        case 16: return "s0";      // Save (0)
+        case 17: return "s1";      // Save (1)
+        case 18: return "s2";      // Save (2)
+        case 19: return "s3";      // Save (3)
+        case 20: return "s4";      // Save (4)
+        case 21: return "s5";      // Save (5)
+        case 22: return "s6";      // Save (6)
+        case 23: return "s7";      // Save (7)
+        case 24: return "t8";      // Temporaries (8)
+        case 25: return "t9";      // Temporaries (9)
+        case 26: return "k0";      // Kernal (0)
+        case 27: return "k1";      // Kernal (1)
+        case 28: return "gp";      // Global Pointer
+        case 29: return "sp";      // Stack Pointer
+        case 30: return "fp";      // Frame Pointer
+        case 31: return "ra";      // Return Address
         default: return "ERR";      // Invalid Register Error
     }
 }
 
 int getWriteRegister(Instruction i) // @todo
 {
-    if(strcmp(i.name, "add") == 0)
-        return 0;
+    if(strcmp(i.name, "add") == 0) // @julian - done
+        return i.rd;
     else if(strcmp(i.name, "sub") == 0)
         return 0;
     else if(strcmp(i.name, "sll") == 0)
@@ -621,15 +634,67 @@ int getWriteRegister(Instruction i) // @todo
         return 0;
     else if(strcmp(i.name, "halt") == 0)
         return 0;
-    else if(strcmp(i.name, "lw") == 0)
+    else if(strcmp(i.name, "lw") == 0) // @julian -done
         return i.rt;
     else if(strcmp(i.name, "sw") == 0)
-        return 0;
+        return i.rt;
     else if(strcmp(i.name , "andi") == 0)
         return 0;
-    else if(strcmp(i.name, "ori") == 0)
+    else if(strcmp(i.name, "ori") == 0) // @julian - done
         return i.rt;
     else if(strcmp(i.name, "bne") == 0)
+        return 0;
+    else
+        return 0;
+}
+
+int getReadData(Instruction ins, int n)
+{
+    if(strcmp(ins.name, "add") == 0)
+    {
+        if(n == 1)
+        {
+            return readRegister(ins.rs);
+        }
+        else if(n == 2)
+        {
+            return readRegister(ins.rt);
+        }
+        else
+        {
+            return 0;
+        }
+        
+    }
+    else if(strcmp(ins.name, "sub") == 0)
+        return 0;
+    else if(strcmp(ins.name, "sll") == 0)
+        return 0;
+    else if(strcmp(ins.name, "noop") == 0)
+        return 0;
+    else if(strcmp(ins.name, "halt") == 0)
+        return 0;
+    else if(strcmp(ins.name, "lw") == 0)
+    {
+        if(n == 1)
+            return readRegister(ins.rs);
+        else
+            return 0;
+    }
+    else if(strcmp(ins.name, "sw") == 0)
+    {
+        if(n == 1)
+            return readRegister(ins.rs);
+        else if(n == 2)
+            return readRegister(ins.rt);
+        else
+            return 0;
+    }
+    else if(strcmp(ins.name , "andi") == 0)
+        return 0;
+    else if(strcmp(ins.name, "ori") == 0)
+        return 0;
+    else if(strcmp(ins.name, "bne") == 0)
         return 0;
     else
         return 0;
@@ -674,25 +739,25 @@ void deepCopyInstruction(Instruction *c, Instruction o)
 void printInstructionFormatted(Instruction ins)
 {
     if(strcmp(ins.name, "add") == 0)
-        printf("%s %s,%s,%s",ins.name, translateRegister(ins.rd),translateRegister(ins.rs), translateRegister(ins.rt));
+        printf("%s $%s,$%s,$%s",ins.name, translateRegister(ins.rd),translateRegister(ins.rs), translateRegister(ins.rt));
     else if(strcmp(ins.name, "sub") == 0)
-        printf("%s %s,%s,%s", ins.name, translateRegister(ins.rd), translateRegister(ins.rs), translateRegister(ins.rt));
+        printf("%s $%s,$%s,$%s", ins.name, translateRegister(ins.rd), translateRegister(ins.rs), translateRegister(ins.rt));
     else if(strcmp(ins.name, "sll") == 0)
-        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rd),translateRegister(ins.rt), ins.imm);
+        printf("%s $%s,$%s,%d", ins.name, translateRegister(ins.rd),translateRegister(ins.rt), ins.imm);
     else if(strcmp(ins.name, "noop") == 0)
         printf("%s", "NOOP");
     else if(strcmp(ins.name, "halt") == 0)
         printf("%s", ins.name);
     else if(strcmp(ins.name, "lw") == 0)
-        printf("%s %s, %d(%s)", ins.name, translateRegister(ins.rt), ins.imm, translateRegister(ins.rs));
+        printf("%s $%s, %d($%s)", ins.name, translateRegister(ins.rt), ins.imm, translateRegister(ins.rs));
     else if(strcmp(ins.name, "sw") == 0)
-        printf("%s %s, %d(%s)", ins.name, translateRegister(ins.rt), ins.imm, translateRegister(ins.rs));
+        printf("%s $%s, %d($%s)", ins.name, translateRegister(ins.rt), ins.imm, translateRegister(ins.rs));
     else if(strcmp(ins.name, "andi") == 0)
-        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rt),translateRegister(ins.rs), ins.imm);
+        printf("%s $%s,$%s,%d", ins.name, translateRegister(ins.rt),translateRegister(ins.rs), ins.imm);
     else if(strcmp(ins.name, "ori") == 0)
-        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rt), translateRegister(ins.rs), ins.imm);
+        printf("%s $%s,$%s,%d", ins.name, translateRegister(ins.rt), translateRegister(ins.rs), ins.imm);
     else if(strcmp(ins.name, "bne") == 0)
-        printf("%s %s,%s,%d", ins.name, translateRegister(ins.rs), translateRegister(ins.rt), ins.imm);
+        printf("%s $%s,$%s,%d", ins.name, translateRegister(ins.rs), translateRegister(ins.rt), ins.imm);
     else
         printf("[Error: Unsupported Instruction]");
 }
@@ -722,7 +787,10 @@ void addInstruction(Instruction i)
     if( DEBUG_MODE ) printf("Adding Instruction %s", i.name);
 
     deepCopyInstruction(&newState.stage1.instruction, i);
-    newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+    if(!HALTING)
+        newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+    else
+        newState.stage1.pc4 = currentState.stage1.pc4;
 
     if( DEBUG_MODE ) printf("Done Adding Instruction");
 }
@@ -730,7 +798,7 @@ void addInstruction(Instruction i)
 int aluOp(Instruction i) //@todo
 {
     if(strcmp(i.name, "add") == 0)
-        return 0;
+        return readRegister(i.rs)+readRegister(i.rt); // @julian - done
     else if(strcmp(i.name, "sub") == 0)
         return 0;
     else if(strcmp(i.name, "sll") == 0)
@@ -740,9 +808,9 @@ int aluOp(Instruction i) //@todo
     else if(strcmp(i.name, "halt") == 0)
         return 0;
     else if(strcmp(i.name, "lw") == 0)
-        return readRegister(i.rs)+i.imm;
-    else if(strcmp(i.name, "sw") == 0)
-        return 0;
+        return currentState.stage2.read1 + currentState.stage2.imm;
+    else if(strcmp(i.name, "sw") == 0)  // @julian - done
+        return currentState.stage2.read1 + currentState.stage2.imm;
     else if(strcmp(i.name , "andi") == 0)
         return 0;
     else if(strcmp(i.name, "ori") == 0)
@@ -756,7 +824,6 @@ int aluOp(Instruction i) //@todo
 int readRegister(int reg)
 {
     int target = reg;
-    
     if(target > -1 && target < NUM_REGISTERS)
         return REGFILE[target];
     else
@@ -772,10 +839,19 @@ int readMemory(int address)
         return 0;
 }
 
+void writeToMemory(int address, int content) // todo - header
+{
+    int target = (address - (num_instructions*4))/4;
+    if(target > -1 && target < DATA_MEM)
+    {
+        DATAMEM[target] = content;
+    }
+}
+
 void writeToRegister(P_Mem_Wb s)
 {
     if(strcmp(s.instruction.name, "add") == 0)
-        return;
+        REGFILE[s.writeRegister] = s.writeFromAlu;
     else if(strcmp(s.instruction.name, "sub") == 0)
         return;
     else if(strcmp(s.instruction.name, "sll") == 0)
@@ -798,8 +874,35 @@ void writeToRegister(P_Mem_Wb s)
         return;
 }
 
+int getWriteMem(P_Ex_Mem s) // @todo - add to header
+{
+    if(strcmp(s.instruction.name, "add") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "sub") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "sll") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "noop") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "halt") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "lw") == 0)
+        return readMemory(s.aluRes);
+    else if(strcmp(s.instruction.name, "sw") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name , "andi") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "ori") == 0)
+        return 0;
+    else if(strcmp(s.instruction.name, "bne") == 0)
+        return 0;
+    else
+        return 0;
+}
+
 void cycle(void)
 {
+    // Perform Register Writes
     writeToRegister(currentState.stage4);
 
     // Push Instructions Onward
@@ -809,7 +912,10 @@ void cycle(void)
 
     // Increment PC
     PC += 4;
-    newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+    if(!HALTING)
+        newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+    else
+        newState.stage1.pc4 = currentState.stage1.pc4;
 
     // Populate ID/EX Stage (Stage 2)
     newState.stage2.rs = newState.stage2.instruction.rs;
@@ -817,17 +923,25 @@ void cycle(void)
     newState.stage2.rd = newState.stage2.instruction.rd;
     newState.stage2.imm = newState.stage2.instruction.imm;
     newState.stage2.pc4 = currentState.stage1.pc4;
+    newState.stage2.read1 = getReadData(newState.stage2.instruction,1); // @todo
+    newState.stage2.read2 = getReadData(newState.stage2.instruction,2); // @todo
     
     // @todo BT, RD1, RD2
 
     // Populate EX/MEM Stage (Stage 3) @todo
     newState.stage3.aluRes = aluOp(newState.stage3.instruction);
-    newState.stage3.wr = getWriteRegister(newState.stage3.instruction);
+    newState.stage3.wd = currentState.stage2.read2;
+    newState.stage3.wr = getWriteRegister(newState.stage3.instruction); 
+    // BOOKMARK : Working on '' function, 'lw;', 'add', 'ori', and 'sw' are done
 
     // Populate MEM/WB Stage (Stage 4) @todo
-    newState.stage4.writeFromMem = readMemory(currentState.stage3.aluRes);
+    newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
+    // newState.stage4.writeFromMem = readMemory(currentState.stage3.aluRes);
     newState.stage4.writeFromAlu = currentState.stage3.aluRes;
     newState.stage4.writeRegister = currentState.stage3.wr;
+
+    if(strcmp(newState.stage4.instruction.name, "sw") == 0)
+        writeToMemory(newState.stage4.writeFromAlu, currentState.stage3.wd); // test @todo
 }
 
 void runProgram(void)
@@ -838,7 +952,7 @@ void runProgram(void)
     printState(currentState);
 
     int i; 
-    int haltInstruction = 0;
+    int prepareHalt = 0;
 
     // Iterate Through Instructions
     for( i = 0; currentState.stage4.instruction.func !=  OP_HALT; i++)
@@ -847,16 +961,17 @@ void runProgram(void)
         initState(&newState);
 
         // Add New instruction
-        if(haltInstruction == 0)
+        if(!prepareHalt)
         {
             if(INS[i].func ==  OP_HALT)
             {
-                haltInstruction = 1;
+                prepareHalt = 1;
             }
             addInstruction(INS[i]);
         }
         else
         {
+            HALTING = 1;
             addInstruction(newInstruction());
         }
 
@@ -1003,7 +1118,7 @@ void printState(State s)
     printf("\t\trd: %s\n", translateRegister(s.stage2.rd));
 
     // Print Pipe Stage 3 (EX/MEM)
-    printf("\tEX/MEM:\n");
+    printf("\tEX/MEM\n");
     printf("\t\tInstruction: ");
     printInstructionFormatted(s.stage3.instruction);
     printf("\n\t\taluResult: %d\n", s.stage3.aluRes);
@@ -1024,6 +1139,7 @@ void init(void)
 {
     // Initialize Globals
     num_instructions = 0;
+    HALTING = 0;
 
     // Initialize Registers
     int i;
