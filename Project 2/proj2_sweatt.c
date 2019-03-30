@@ -627,7 +627,7 @@ int getWriteRegister(Instruction i) // @todo
     if(strcmp(i.name, "add") == 0) // @julian - done
         return i.rd;
     else if(strcmp(i.name, "sub") == 0)
-        return 0;
+        return i.rd;
     else if(strcmp(i.name, "sll") == 0)
         return 0;
     else if(strcmp(i.name, "noop") == 0)
@@ -664,10 +664,20 @@ int getReadData(Instruction ins, int n)
         {
             return 0;
         }
-        
     }
     else if(strcmp(ins.name, "sub") == 0)
-        return 0;
+        if(n == 1)
+        {
+            return readRegister(ins.rs);
+        }
+        else if(n == 2)
+        {
+            return readRegister(ins.rt);
+        }
+        else
+        {
+            return 0;
+        }
     else if(strcmp(ins.name, "sll") == 0)
         return 0;
     else if(strcmp(ins.name, "noop") == 0)
@@ -798,9 +808,9 @@ void addInstruction(Instruction i)
 int aluOp(Instruction i) //@todo
 {
     if(strcmp(i.name, "add") == 0)
-        return readRegister(i.rs)+readRegister(i.rt); // @julian - done
+        return currentState.stage2.read1 + currentState.stage2.read2;
     else if(strcmp(i.name, "sub") == 0)
-        return 0;
+        return currentState.stage2.read1 - currentState.stage2.read2;
     else if(strcmp(i.name, "sll") == 0)
         return 0;
     else if(strcmp(i.name, "noop") == 0)
@@ -809,7 +819,7 @@ int aluOp(Instruction i) //@todo
         return 0;
     else if(strcmp(i.name, "lw") == 0)
         return currentState.stage2.read1 + currentState.stage2.imm;
-    else if(strcmp(i.name, "sw") == 0)  // @julian - done
+    else if(strcmp(i.name, "sw") == 0)
         return currentState.stage2.read1 + currentState.stage2.imm;
     else if(strcmp(i.name , "andi") == 0)
         return 0;
@@ -853,7 +863,7 @@ void writeToRegister(P_Mem_Wb s)
     if(strcmp(s.instruction.name, "add") == 0)
         REGFILE[s.writeRegister] = s.writeFromAlu;
     else if(strcmp(s.instruction.name, "sub") == 0)
-        return;
+        REGFILE[s.writeRegister] = s.writeFromAlu;
     else if(strcmp(s.instruction.name, "sll") == 0)
         return;
     else if(strcmp(s.instruction.name, "noop") == 0)
@@ -902,7 +912,7 @@ int getWriteMem(P_Ex_Mem s) // @todo - add to header
 
 void cycle(void)
 {
-    // Perform Register Writes
+    // Write Registers
     writeToRegister(currentState.stage4);
 
     // Push Instructions Onward
@@ -923,25 +933,25 @@ void cycle(void)
     newState.stage2.rd = newState.stage2.instruction.rd;
     newState.stage2.imm = newState.stage2.instruction.imm;
     newState.stage2.pc4 = currentState.stage1.pc4;
-    newState.stage2.read1 = getReadData(newState.stage2.instruction,1); // @todo
-    newState.stage2.read2 = getReadData(newState.stage2.instruction,2); // @todo
+    newState.stage2.read1 = getReadData(newState.stage2.instruction,1);
+    newState.stage2.read2 = getReadData(newState.stage2.instruction,2);
     
-    // @todo BT, RD1, RD2
+    // @todo BT
 
-    // Populate EX/MEM Stage (Stage 3) @todo
+    // Populate EX/MEM Stage (Stage 3)
     newState.stage3.aluRes = aluOp(newState.stage3.instruction);
     newState.stage3.wd = currentState.stage2.read2;
     newState.stage3.wr = getWriteRegister(newState.stage3.instruction); 
-    // BOOKMARK : Working on '' function, 'lw;', 'add', 'ori', and 'sw' are done
+    // BOOKMARK : Working on 'sub' function, 'lw;', 'add', 'ori', and 'sw' are done
 
-    // Populate MEM/WB Stage (Stage 4) @todo
+    // Populate MEM/WB Stage (Stage 4)
     newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
-    // newState.stage4.writeFromMem = readMemory(currentState.stage3.aluRes);
     newState.stage4.writeFromAlu = currentState.stage3.aluRes;
     newState.stage4.writeRegister = currentState.stage3.wr;
 
+    // Write Memory
     if(strcmp(newState.stage4.instruction.name, "sw") == 0)
-        writeToMemory(newState.stage4.writeFromAlu, currentState.stage3.wd); // test @todo
+        writeToMemory(newState.stage4.writeFromAlu, currentState.stage3.wd);
 }
 
 void runProgram(void)
