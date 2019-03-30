@@ -55,7 +55,7 @@ typedef struct
     int rs;              // RS Register
     int rt;              // RT Register
     int rd;              // RD Register
-    int imm;             // Immediate
+    int16_t imm;             // Immediate
     int bt;              // Branch Target
     int opCode;          // Operation Code
     int func;            // Function Code
@@ -639,7 +639,7 @@ int getWriteRegister(Instruction i) // @todo
     else if(strcmp(i.name, "sw") == 0)
         return i.rt;
     else if(strcmp(i.name , "andi") == 0)
-        return 0;
+        return i.rt;
     else if(strcmp(i.name, "ori") == 0) // @julian - done
         return i.rt;
     else if(strcmp(i.name, "bne") == 0)
@@ -701,7 +701,10 @@ int getReadData(Instruction ins, int n)
             return 0;
     }
     else if(strcmp(ins.name , "andi") == 0)
-        return 0;
+        if(n == 1)
+            return readRegister(ins.rs);
+        else
+            return 0;
     else if(strcmp(ins.name, "ori") == 0)
         return 0;
     else if(strcmp(ins.name, "bne") == 0)
@@ -822,7 +825,7 @@ int aluOp(Instruction i) //@todo
     else if(strcmp(i.name, "sw") == 0)
         return currentState.stage2.read1 + currentState.stage2.imm;
     else if(strcmp(i.name , "andi") == 0)
-        return 0;
+        return currentState.stage2.read1 & currentState.stage2.imm;
     else if(strcmp(i.name, "ori") == 0)
         return i.rs | i.imm;
     else if(strcmp(i.name, "bne") == 0)
@@ -875,7 +878,7 @@ void writeToRegister(P_Mem_Wb s)
     else if(strcmp(s.instruction.name, "sw") == 0)
         return;
     else if(strcmp(s.instruction.name , "andi") == 0)
-        return;
+        REGFILE[s.writeRegister] = s.writeFromAlu;
     else if(strcmp(s.instruction.name, "ori") == 0)
         REGFILE[s.writeRegister] = s.writeFromAlu;
     else if(strcmp(s.instruction.name, "bne") == 0)
@@ -942,7 +945,7 @@ void cycle(void)
     newState.stage3.aluRes = aluOp(newState.stage3.instruction);
     newState.stage3.wd = currentState.stage2.read2;
     newState.stage3.wr = getWriteRegister(newState.stage3.instruction); 
-    // BOOKMARK : Working on 'sub' function, 'lw;', 'add', 'ori', and 'sw' are done
+    // BOOKMARK : Working on 'andi' function, 'lw;', 'add', 'ori', 'sw', and 'sub' are done
 
     // Populate MEM/WB Stage (Stage 4)
     newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
