@@ -34,7 +34,7 @@
  *             CONFIG               *
  *----------------------------------*/
 #define DEBUG_MODE 0
-#define MAX_INSTRUCTIONS 100
+#define MAX_INSTRUCTIONS 100 // May be an issue when stalling
 #define MAX_INS_NAME_LENGTH 5
 #define NUM_REGISTERS 32
 #define DATA_MEM 32
@@ -305,6 +305,13 @@ void writeToRegister(P_Mem_Wb s);
  * @param type name msg
  * @return type msg
  */
+void stall(void);
+
+/**
+ * @brief msg
+ * @param type name msg
+ * @return type msg
+ */
 void cycle(void);
 
 /**
@@ -427,7 +434,10 @@ char HALTING;
 int REGFILE[NUM_REGISTERS];
 int DATAMEM[DATA_MEM];
 int PC;
-int num_instructions; 
+int NUM_INSTRUCTIONS;
+int CYCLE_COUNT;
+int STALL_COUNT;
+int BREAK;
 
 /*----------------------------------*
  *          IMPLEMENTATIONS         *
@@ -799,9 +809,9 @@ void addInstruction(Instruction i)
 
     deepCopyInstruction(&newState.stage1.instruction, i);
     if(!HALTING)
-        newState.stage1.pc4 = currentState.stage1.pc4 + 4;
+        newState.stage1.pc4 = PC + 4;
     else
-        newState.stage1.pc4 = currentState.stage1.pc4;
+        newState.stage1.pc4 = PC;
 
     if( DEBUG_MODE ) printf("Done Adding Instruction");
 }
@@ -843,7 +853,7 @@ int readRegister(int reg)
 
 int readMemory(int address)
 {
-    int target = (address - (num_instructions*4))/4;
+    int target = (address - (NUM_INSTRUCTIONS*4))/4;
     if(target > -1 && target < DATA_MEM)
         return DATAMEM[target];
     else
@@ -852,7 +862,7 @@ int readMemory(int address)
 
 void writeToMemory(int address, int content) // todo - header
 {
-    int target = (address - (num_instructions*4))/4;
+    int target = (address - (NUM_INSTRUCTIONS*4))/4;
     if(target > -1 && target < DATA_MEM)
     {
         DATAMEM[target] = content;
@@ -911,22 +921,19 @@ int getWriteMem(P_Ex_Mem s) // @todo - add to header
         return 0;
 }
 
-void cycle(void)
+void stall(void) // @todo
 {
-    // Write Registers
-    writeToRegister(currentState.stage4);
+    // Increment Analytics Counter
+    STALL_COUNT++;
 
     // Push Instructions Onward
-    deepCopyInstruction(&newState.stage2.instruction, currentState.stage1.instruction);
+    deepCopyInstruction(&newState.stage1.instruction, newInstruction());
+    deepCopyInstruction(&newState.stage2.instruction, currentState.stage2.instruction);
     deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
     deepCopyInstruction(&newState.stage4.instruction, currentState.stage3.instruction);
 
-    // Increment PC
-    PC += 4;
-    if(!HALTING)
-        newState.stage1.pc4 = currentState.stage1.pc4 + 4;
-    else
-        newState.stage1.pc4 = currentState.stage1.pc4;
+    // Increment PC // @todo 
+    newState.stage1.pc4 = PC;
 
     // Populate ID/EX Stage (Stage 2)
     newState.stage2.rs = newState.stage2.instruction.rs;
@@ -937,7 +944,50 @@ void cycle(void)
     newState.stage2.read1 = getReadData(newState.stage2.instruction,1);
     newState.stage2.read2 = getReadData(newState.stage2.instruction,2);
     newState.stage2.bt = currentState.stage1.pc4 + ((newState.stage2.instruction.raw << 2) & 0xFFFF);
-    // @todo BT
+
+    // Populate EX/MEM Stage (Stage 3)
+    newState.stage3.aluRes = aluOp(newState.stage3.instruction);
+    newState.stage3.wd = currentState.stage2.read2;
+    newState.stage3.wr = getWriteRegister(newState.stage3.instruction); 
+
+    // Populate MEM/WB Stage (Stage 4)
+    newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
+    newState.stage4.writeFromAlu = currentState.stage3.aluRes;
+    newState.stage4.writeRegister = currentState.stage3.wr;
+
+    // Write Memory
+    if(strcmp(newState.stage4.instruction.name, "sw") == 0)
+        writeToMemory(newState.stage4.writeFromAlu, currentState.stage3.wd);
+    
+    // Write Registers
+    writeToRegister(newState.stage4);
+}
+
+void cycle(void)
+{
+    // Increment Analytics Counter
+    CYCLE_COUNT++;
+
+    // Write Registers
+    writeToRegister(currentState.stage4);
+
+    // Push Instructions Onward
+    deepCopyInstruction(&newState.stage2.instruction, currentState.stage1.instruction);
+    deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
+    deepCopyInstruction(&newState.stage4.instruction, currentState.stage3.instruction);
+
+    // Increment PC
+    PC += 4;
+
+    // Populate ID/EX Stage (Stage 2)
+    newState.stage2.rs = newState.stage2.instruction.rs;
+    newState.stage2.rt = newState.stage2.instruction.rt;
+    newState.stage2.rd = newState.stage2.instruction.rd;
+    newState.stage2.imm = newState.stage2.instruction.imm;
+    newState.stage2.pc4 = currentState.stage1.pc4;
+    newState.stage2.read1 = getReadData(newState.stage2.instruction,1);
+    newState.stage2.read2 = getReadData(newState.stage2.instruction,2);
+    newState.stage2.bt = currentState.stage1.pc4 + ((newState.stage2.instruction.raw << 2) & 0xFFFF);
 
     // Populate EX/MEM Stage (Stage 3)
     newState.stage3.aluRes = aluOp(newState.stage3.instruction);
@@ -961,6 +1011,7 @@ void runProgram(void)
     printf("********************\n");
     printf("State at the beginning of cycle 1\n");
     printState(currentState);
+    CYCLE_COUNT++;
 
     int i; 
     int prepareHalt = 0;
@@ -971,34 +1022,50 @@ void runProgram(void)
         // Reset New State
         initState(&newState);
 
-        // Add New instruction
-        if(!prepareHalt)
+        // Stall If Needed
+        if(strcmp(currentState.stage2.instruction.name, "lw")==0 && (currentState.stage1.instruction.rs ==
+        currentState.stage2.instruction.rt ||currentState.stage1.instruction.rt == currentState.stage2.instruction.rt)) // Hazard Prediction
         {
-            if(INS[i].func ==  OP_HALT)
-            {
-                prepareHalt = 1;
-            }
-            addInstruction(INS[i]);
+            // Stall Should Happen
         }
         else
         {
-            HALTING = 1;
-            addInstruction(newInstruction());
+            // Add New instruction
+            if(!prepareHalt)
+            {
+                if(INS[i].func ==  OP_HALT)
+                {
+                    prepareHalt = 1;
+                }
+                addInstruction(INS[i]);
+            }
+            else
+            {
+                HALTING = 1;
+                addInstruction(newInstruction());
+            }
+
+            // Execute One Pipeline Cycle
+            cycle();
+
+            // Make the New State the Current State
+            deepCopyState(&currentState, newState);
+
+            // Print Cycle Header
+            printf("********************\n");
+            printf("State at the beginning of cycle %d\n", CYCLE_COUNT);
+
+            // Print State
+            printState(currentState);
         }
-
-        // Execute One Pipeline Cycle
-        cycle();
-
-        // Make the New State the Current State
-        deepCopyState(&currentState, newState);
-
-        // Print Cycle Header
-        printf("********************\n");
-        printf("State at the beginning of cycle %d\n", i+2);
-
-        // Print State
-        printState(currentState);
     }
+
+    // Print Analytics
+    printf("********************\n");
+    printf("Total number of cycles executed: %d\n", CYCLE_COUNT);
+    printf("Total number of stalls: %d\n", STALL_COUNT);
+    printf("Total number of branches: %d\n", 0); // @todo
+    printf("Total number of mispredicted branches: %d\n", 0); //@todo
 }
 
 void initStage1(P_If_Id *s)
@@ -1149,8 +1216,10 @@ void printState(State s)
 void init(void)
 {
     // Initialize Globals
-    num_instructions = 0;
+    NUM_INSTRUCTIONS = 0;
     HALTING = 0;
+    CYCLE_COUNT = 0;
+    STALL_COUNT = 0;
 
     // Initialize Registers
     int i;
@@ -1194,7 +1263,7 @@ void parseInput(void)
     int i = 0;
     while(fgets(lineBuffer,MAX_INSTRUCTIONS, stdin))
     {
-        num_instructions++;
+        NUM_INSTRUCTIONS++;
 
         INS[i] = serializeInstruction(atoi(lineBuffer));
         if(INS[i].func == OP_HALT)
