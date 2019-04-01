@@ -56,10 +56,11 @@ typedef struct
     int rt;              // RT Register
     int rd;              // RD Register
     int16_t imm;         // Immediate
-    int bt;              // Branch Target
+    int16_t bt;          // Branch Target
     int opCode;          // Operation Code
     int func;            // Function Code
     int shamt;           // Shift
+    int raw;             // Full Unprocessed Instruction
 } Instruction;
 
 /**
@@ -80,7 +81,7 @@ typedef struct
 {
     Instruction instruction;    // Instruction
     int pc4;                    // PC + 4
-    int bt;                     // Branch Target
+    int16_t bt;                 // Branch Target
     int rs;                     // RS Register
     int rt;                     // RT Register
     int rd;                     // RD Register
@@ -446,7 +447,7 @@ Instruction newInstruction(void)
     ins.rt = 0;
     ins.shamt = 0;
     ins.type = 0;
-    
+
     return ins;
 }
 
@@ -544,26 +545,24 @@ char* getName(int ins)
 Instruction serializeInstruction(int ins)
 {
     Instruction SerIns;
+    
+    SerIns.raw = ins;
 
     SerIns.name = getName(ins);
     SerIns.type = getType(ins);
     SerIns.opCode = getOpCode(ins);
     SerIns.rs = getRS(ins);
     SerIns.rt = getRT(ins);
+    SerIns.imm = getImmediate(ins);
 
     if(SerIns.type == 'R')
     {
         SerIns.rd = getRD(ins);
         SerIns.shamt = getShamt(ins);
         SerIns.func = getFunc(ins);
-
-        // Remaining Null
-        SerIns.imm = 0;
     }
     else if(SerIns.type == 'I')
     {
-        SerIns.imm = getImmediate(ins);
-
         // Remaining Nulls
         SerIns.rd = 0;
         SerIns.shamt = 0;
@@ -722,6 +721,7 @@ void deepCopyInstruction(Instruction *c, Instruction o)
     c->rt = o.rt;
     c->shamt = o.shamt;
     c->type = o.type;
+    c->raw = o.raw;
 
     if(strcmp(o.name, "add") == 0)
         c->name = "add";
@@ -936,7 +936,7 @@ void cycle(void)
     newState.stage2.pc4 = currentState.stage1.pc4;
     newState.stage2.read1 = getReadData(newState.stage2.instruction,1);
     newState.stage2.read2 = getReadData(newState.stage2.instruction,2);
-    
+    newState.stage2.bt = currentState.stage1.pc4 + ((newState.stage2.instruction.raw << 2) & 0xFFFF);
     // @todo BT
 
     // Populate EX/MEM Stage (Stage 3)
