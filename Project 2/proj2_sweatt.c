@@ -829,42 +829,75 @@ int aluOp(Instruction i)
 {
     if(strcmp(i.name, "add") == 0)
     {
-        // Test
-        // if((FORWARD_A & 0b01) == 0b01 && (FORWARD_B & 0b10) == 0b10)
-        // {
-        //     printf("\n\n\n\n\n Forward Addition Used (BOTH)\n\n\n\n\n\n");
-        //     FORWARD_A = FORWARD_A & 0b10;
-        //     FORWARD_B = FORWARD_B & 0b01;
-        //     return FORWARD_A_VAL + FORWARD_B_VAL;
-        // }
-
-        // tseT
+        int op1 = 0;
+        int op2 = 0;
         if((FORWARD_A & 0b10) == 0b10 && (FORWARD_B & 0b10) != 0b10)
         {
             FORWARD_A = FORWARD_A & 0b01;
-            return currentState.stage3.aluRes + currentState.stage2.read2;
+            op1 = currentState.stage3.aluRes;
+            op2 = currentState.stage2.read2;
         }
         else if((FORWARD_A & 0b10) != 0b10 && (FORWARD_B & 0b10) == 0b10)
         {
             FORWARD_B = FORWARD_B & 0b01;
-            return currentState.stage2.read1 + currentState.stage3.aluRes;
+            op1 = currentState.stage2.read1;
+            op2 = currentState.stage3.aluRes;
         }
-        printf("\n\n\n\n\n Forward Addition --NOT-- Used\n\n\n\n\n\n");
-        return currentState.stage2.read1 + currentState.stage2.read2;
+        else
+        {
+            op1 = currentState.stage2.read1;
+            op2 = currentState.stage2.read2;
+        }
+        
+        // Double Look-Ahead
+        if((FORWARD_A & 0b01) == 0b01 && (FORWARD_B & 0b01) != 0b01)
+        {
+            FORWARD_A = FORWARD_A & 0b10;
+            op1 = currentState.stage4.writeFromAlu;
+        }
+        else if((FORWARD_A & 0b01) != 0b01 && (FORWARD_B & 0b01) == 0b01)
+        {
+            FORWARD_B = FORWARD_B & 0b10;
+            op2 = currentState.stage4.writeFromAlu;
+        }
+
+        return op1 + op2;
     }
     else if(strcmp(i.name, "sub") == 0)
     {
+        int op1 = 0;
+        int op2 = 0;
         if((FORWARD_A & 0b10) == 0b10 && (FORWARD_B & 0b10) != 0b10)
         {
             FORWARD_A = FORWARD_A & 0b01;
-            return currentState.stage3.aluRes - currentState.stage2.read2;
+            op1 = currentState.stage3.aluRes;
+            op2 = currentState.stage2.read2;
         }
         else if((FORWARD_A & 0b10) != 0b10 && (FORWARD_B & 0b10) == 0b10)
         {
             FORWARD_B = FORWARD_B & 0b01;
-            return currentState.stage2.read1 - currentState.stage3.aluRes;
+            op1 = currentState.stage2.read1;
+            op2 = currentState.stage3.aluRes;
         }
-        return currentState.stage2.read1 - currentState.stage2.read2;
+        else
+        {
+            op1 = currentState.stage2.read1;
+            op2 = currentState.stage2.read2;
+        }
+        
+        // Double Look-Ahead
+        if((FORWARD_A & 0b01) == 0b01 && (FORWARD_B & 0b01) != 0b01)
+        {
+            FORWARD_A = FORWARD_A & 0b10;
+            op1 = currentState.stage4.writeFromAlu;
+        }
+        else if((FORWARD_A & 0b01) != 0b01 && (FORWARD_B & 0b01) == 0b01)
+        {
+            FORWARD_B = FORWARD_B & 0b10;
+            op2 = currentState.stage4.writeFromAlu;
+        }
+
+        return op1 - op2;
     }
     else if(strcmp(i.name, "sll") == 0)
     {
@@ -872,6 +905,13 @@ int aluOp(Instruction i)
         {
             FORWARD_B = FORWARD_B & 0b01;
             return currentState.stage3.aluRes << currentState.stage2.instruction.shamt;
+        }
+
+        // Double Look-Ahead
+        if((FORWARD_B & 0b01) == 0b01)
+        {
+            FORWARD_B = FORWARD_B & 0b10;
+            return currentState.stage4.writeFromAlu  << currentState.stage2.instruction.shamt;
         }
         return currentState.stage2.read1 << currentState.stage2.instruction.shamt;
     }
@@ -886,32 +926,66 @@ int aluOp(Instruction i)
             FORWARD_A = FORWARD_A & 0b01;
             return currentState.stage3.aluRes + currentState.stage2.imm;
         }
+
+        // Double Look-Ahead
+        if((FORWARD_A & 0b01) == 0b01)
+        {
+            FORWARD_A = FORWARD_A & 0b10;
+            return currentState.stage4.writeFromAlu + currentState.stage2.imm;;
+        }
+
         return currentState.stage2.read1 + currentState.stage2.imm;
     }
     else if(strcmp(i.name, "sw") == 0)
     {        
+        // Save Word Only Ever Needs An ALU Forward_A Lookup
         if((FORWARD_A & 0b10) == 0b10)
         {
             FORWARD_A = FORWARD_A & 0b01;
             return currentState.stage3.aluRes + currentState.stage2.imm;
         }
+
+        // Double Look-Ahead
+        if((FORWARD_A & 0b01) == 0b01)
+        {
+            FORWARD_A = FORWARD_A & 0b10;
+            return currentState.stage4.writeFromAlu + currentState.stage2.imm;;
+        }
+
         return currentState.stage2.read1 + currentState.stage2.imm;
     }
     else if(strcmp(i.name , "andi") == 0)
     {
+        // I-Types Only Ever Needs An ALU Forward_A Lookup
         if((FORWARD_A & 0b10) == 0b10)
         {
             FORWARD_A = FORWARD_A & 0b01;
             return currentState.stage3.aluRes & currentState.stage2.imm;
         }
+
+        // Double Look-Ahead
+        if((FORWARD_A & 0b01) == 0b01)
+        {
+            FORWARD_A = FORWARD_A & 0b10;
+            return currentState.stage4.writeFromAlu & currentState.stage2.imm;
+        }
+
         return currentState.stage2.read1 & currentState.stage2.imm;
     }
     else if(strcmp(i.name, "ori") == 0)
     {
+        // I-Types Only Ever Needs An ALU Forward_A Lookup
         if((FORWARD_A & 0b10) == 0b10)
         {
             FORWARD_A = FORWARD_A & 0b01;
             return currentState.stage3.aluRes | currentState.stage2.imm;
+        }
+
+        // Double Look-Ahead
+        if((FORWARD_A & 0b01) == 0b01)
+        {
+            FORWARD_A = FORWARD_A & 0b10;
+            return currentState.stage4.writeFromAlu | currentState.stage2.imm;
         }
         return currentState.stage2.read1 | i.imm;
     }
@@ -1077,6 +1151,11 @@ void cycle(void)
         FORWARD_B = FORWARD_B & 0b01;
         newState.stage3.wd = currentState.stage3.aluRes;
     }
+    if((FORWARD_B & 0b01) == 0b01)
+    {
+        FORWARD_B = FORWARD_B & 0b10;
+        newState.stage3.wd = currentState.stage4.writeFromAlu;
+    }
     else
         newState.stage3.wd = currentState.stage2.read2;
     newState.stage3.wr = getWriteRegister(newState.stage3.instruction);
@@ -1101,18 +1180,18 @@ void cycle(void)
     newState.stage4.writeRegister = currentState.stage3.wr;
 
     // Check for Hazards
-    // if(newState.stage4.writeFromAlu && newState.stage4.writeRegister == newState.stage2.rs)
-    // {
-    //     if(DEBUG_MODE){printf("\n\n\n Double Forwarding (A) %d to %s\n\n\n", newState.stage4.writeFromAlu, currentState.stage2.instruction.name);}
-    //     FORWARD_A = FORWARD_A | 0b01;
-    //     FORWARD_A_VAL = newState.stage4.writeFromAlu;
-    // }
-    // else if(newState.stage4.writeFromAlu && newState.stage4.writeRegister == newState.stage2.rt)
-    // {
-    //     if(DEBUG_MODE)printf("\n\n\n Double Forwarding (B) %d to %s\n\n\n", newState.stage4.writeFromAlu,currentState.stage2.instruction.name);
-    //     FORWARD_B = FORWARD_B | 0b01;
-    //     FORWARD_B_VAL = newState.stage4.writeFromAlu;
-    // }
+    if(newState.stage4.writeFromAlu && newState.stage4.writeRegister == newState.stage2.rs)
+    {
+        if(DEBUG_MODE){printf("\n\n\n Double Forwarding (A) %d to %s\n\n\n", newState.stage4.writeFromAlu, currentState.stage2.instruction.name);}
+        FORWARD_A = FORWARD_A | 0b01;
+        //FORWARD_A_VAL = newState.stage4.writeFromAlu;
+    }
+    else if(newState.stage4.writeFromAlu && newState.stage4.writeRegister == newState.stage2.rt)
+    {
+        if(DEBUG_MODE)printf("\n\n\n Double Forwarding (B) %d to %s\n\n\n", newState.stage4.writeFromAlu,currentState.stage2.instruction.name);
+        FORWARD_B = FORWARD_B | 0b01;
+        //FORWARD_B_VAL = newState.stage4.writeFromAlu;
+    }
 
     // Write Memory
     if(strcmp(newState.stage4.instruction.name, "sw") == 0)

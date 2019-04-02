@@ -6,6 +6,7 @@
 	andi	$t5,$t2,255
 	ori	$t3,$t5,1
 	sw	$t3,12($s0)
+	ori	$s3,$0,Data2
 	halt
 	.data
 Data1:	.word	15
