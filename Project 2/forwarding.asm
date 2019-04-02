@@ -5,9 +5,7 @@
 	sll	$t2,$t1,3
 	andi	$t5,$t2,255
 	ori	$t3,$t5,1
-	add	$t2,$t3,$t5
-	sub	$t4,$t3,$t2
-	sw	$t4,8($s0)
+	sw	$t3,12($s0)
 	halt
 	.data
 Data1:	.word	15

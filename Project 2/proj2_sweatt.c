@@ -907,10 +907,10 @@ int aluOp(Instruction i)
     }
     else if(strcmp(i.name, "sw") == 0)
     {        
-        if((FORWARD_B & 0b10) == 0b10)
+        if((FORWARD_A & 0b10) == 0b10)
         {
-            FORWARD_B = FORWARD_B & 0b01;
-            return FORWARD_B_VAL + currentState.stage2.imm;
+            FORWARD_A = FORWARD_A & 0b01;
+            return FORWARD_A_VAL + currentState.stage2.imm;
         }
         return currentState.stage2.read1 + currentState.stage2.imm;
     }
@@ -1089,17 +1089,24 @@ void cycle(void)
 
     // Populate EX/MEM Stage (Stage 3)
     newState.stage3.aluRes = aluOp(newState.stage3.instruction);
-    newState.stage3.wd = currentState.stage2.read2;
+    if((FORWARD_B & 0b10) == 0b10)
+    {
+        FORWARD_B = FORWARD_B & 0b01;
+        newState.stage3.wd = FORWARD_B_VAL;
+        printf("\n\n\n\n\n\n\n\n\n\n RETRIEVAL IN CORE \n\n\n\n\n\n");
+    }
+    else
+        newState.stage3.wd = currentState.stage2.read2;
     newState.stage3.wr = getWriteRegister(newState.stage3.instruction);
 
     // Check for Hazards
-    if(newState.stage3.wr == newState.stage2.rs)
+    if(newState.stage3.wr && newState.stage3.wr == newState.stage2.rs)
     {
         FORWARD_A = FORWARD_A | 0b10;
         if(DEBUG_MODE){printf("\n\n\nForwarding (A) %d by %d \n\n\n", newState.stage3.aluRes, FORWARD_A);}
         FORWARD_A_VAL = newState.stage3.aluRes;
     }
-    else if(newState.stage3.wr == newState.stage2.rt)
+    if(newState.stage3.wr && newState.stage3.wr == newState.stage2.rt)
     {
         if(DEBUG_MODE)printf("\n\n\nForwarding (B) %d to %s\n\n\n", newState.stage3.aluRes,currentState.stage2.instruction.name);
         FORWARD_B = FORWARD_B | 0b10;
