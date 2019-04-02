@@ -458,6 +458,7 @@ Instruction newInstruction(void)
     ins.rt = 0;
     ins.shamt = 0;
     ins.type = 0;
+    ins.raw = 0;
 
     return ins;
 }
@@ -853,12 +854,18 @@ int aluOp(Instruction i)
         if((FORWARD_A & 0b01) == 0b01 && (FORWARD_B & 0b01) != 0b01)
         {
             FORWARD_A = FORWARD_A & 0b10;
-            op1 = currentState.stage4.writeFromAlu;
+            if(strcmp(currentState.stage4.instruction.name, "lw")==0)
+                op1 = currentState.stage4.writeFromMem;
+            else
+                op2 = currentState.stage4.writeFromAlu;
         }
         else if((FORWARD_A & 0b01) != 0b01 && (FORWARD_B & 0b01) == 0b01)
         {
             FORWARD_B = FORWARD_B & 0b10;
-            op2 = currentState.stage4.writeFromAlu;
+            if(strcmp(currentState.stage4.instruction.name, "lw")==0)
+                op2 = currentState.stage4.writeFromMem;
+            else
+                op2 = currentState.stage4.writeFromAlu;
         }
 
         return op1 + op2;
@@ -1050,68 +1057,54 @@ void writeToRegister(P_Mem_Wb s)
 
 int getWriteMem(P_Ex_Mem s) // @todo - add to header
 {
-    if(strcmp(s.instruction.name, "add") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "sub") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "sll") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "noop") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "halt") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "lw") == 0)
+    if(strcmp(s.instruction.name, "lw") == 0)
         return readMemory(s.aluRes);
-    else if(strcmp(s.instruction.name, "sw") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name , "andi") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "ori") == 0)
-        return 0;
-    else if(strcmp(s.instruction.name, "bne") == 0)
-        return 0;
     else
         return 0;
 }
 
-// void stall(void) // @todo
-// {
-//     // Increment Analytics Counter
-//     STALL_COUNT++;
+void stall(void) // @todo
+{
+    // Write Registers
+    writeToRegister(currentState.stage4);
 
-//     // Push Instructions Onward
-//     deepCopyInstruction(&newState.stage1.instruction, currentState.stage1.instruction);
-//     deepCopyInstruction(&newState.stage2.instruction, newInstruction());
-//     deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
-//     deepCopyInstruction(&newState.stage4.instruction, currentState.stage3.instruction);
+    // Increment Analytics Counter
+    STALL_COUNT++;
+    CYCLE_COUNT++;
 
-//     // Increment PC // @todo 
-//     newState.stage1.pc4 = PC;
+    // Push Instructions Onward
+    deepCopyInstruction(&newState.stage1.instruction, currentState.stage1.instruction);
+    deepCopyInstruction(&newState.stage2.instruction, newInstruction());
+    deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
+    deepCopyInstruction(&newState.stage4.instruction, currentState.stage3.instruction);
 
-//     // Populate ID/EX Stage (Stage 2)
-//     newState.stage2.rs = newState.stage2.instruction.rs;
-//     newState.stage2.rt = newState.stage2.instruction.rt;
-//     newState.stage2.rd = newState.stage2.instruction.rd;
-//     newState.stage2.imm = newState.stage2.instruction.imm;
-//     newState.stage2.pc4 = currentState.stage1.pc4;
-//     newState.stage2.read1 = getReadData(newState.stage2.instruction,1);
-//     newState.stage2.read2 = getReadData(newState.stage2.instruction,2);
-//     newState.stage2.bt = currentState.stage1.pc4 + ((newState.stage2.instruction.raw << 2) & 0xFFFF);
+    // Increment PC // @todo 
+    newState.stage1.pc4 = PC;
 
-//     // Populate EX/MEM Stage (Stage 3)
-//     newState.stage3.aluRes = aluOp(newState.stage3.instruction);
-//     newState.stage3.wd = currentState.stage2.read2;
-//     newState.stage3.wr = getWriteRegister(newState.stage3.instruction); 
+    // Populate ID/EX Stage (Stage 2)
+    newState.stage2.rs = newState.stage2.instruction.rs;
+    newState.stage2.rt = newState.stage2.instruction.rt;
+    newState.stage2.rd = newState.stage2.instruction.rd;
+    newState.stage2.imm = newState.stage2.instruction.imm;
+    newState.stage2.pc4 = currentState.stage1.pc4;
+    newState.stage2.read1 = getReadData(newState.stage2.instruction,1);
+    newState.stage2.read2 = getReadData(newState.stage2.instruction,2);
+    newState.stage2.bt = currentState.stage1.pc4 + ((newState.stage2.instruction.raw << 2) & 0xFFFF);
 
-//     // Populate MEM/WB Stage (Stage 4)
-//     newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
-//     newState.stage4.writeFromAlu = currentState.stage3.aluRes;
-//     newState.stage4.writeRegister = currentState.stage3.wr;
+    // Populate EX/MEM Stage (Stage 3)
+    newState.stage3.aluRes = aluOp(newState.stage3.instruction);
+    newState.stage3.wd = currentState.stage2.read2;
+    newState.stage3.wr = getWriteRegister(newState.stage3.instruction); 
 
-//     // Write Memory
-//     if(strcmp(newState.stage4.instruction.name, "sw") == 0)
-//         writeToMemory(newState.stage4.writeFromAlu, currentState.stage3.wd);
-// }
+    // Populate MEM/WB Stage (Stage 4)
+    newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
+    newState.stage4.writeFromAlu = currentState.stage3.aluRes;
+    newState.stage4.writeRegister = currentState.stage3.wr;
+
+    // Write Memory
+    if(strcmp(newState.stage4.instruction.name, "sw") == 0)
+        writeToMemory(newState.stage4.writeFromAlu, currentState.stage3.wd);
+}
 
 void cycle(void)
 {
@@ -1160,7 +1153,7 @@ void cycle(void)
         newState.stage3.wd = currentState.stage2.read2;
     newState.stage3.wr = getWriteRegister(newState.stage3.instruction);
 
-    // Check for Hazards
+    // Check for Forwarding Hazards
     if(newState.stage3.wr && newState.stage3.wr == newState.stage2.rs)
     {
         FORWARD_A = FORWARD_A | 0b10;
@@ -1171,8 +1164,7 @@ void cycle(void)
         if(DEBUG_MODE)printf("\n\n\nForwarding (B) %d to %s\n\n\n", newState.stage3.aluRes,currentState.stage2.instruction.name);
         FORWARD_B = FORWARD_B | 0b10;
     }
-    // if(strcmp(currentState.stage2.instruction.name, "lw")==0 && (currentState.stage1.instruction.rs ==
-    //     currentState.stage2.instruction.rt ||currentState.stage1.instruction.rt == currentState.stage2.instruction.rt))
+
 
     // Populate MEM/WB Stage (Stage 4)
     newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
@@ -1230,30 +1222,28 @@ void runProgram(void)
             addInstruction(newInstruction());
         }
 
-        // Stall If Needed
-        // Needs Stall?
+        // Check for Stalling Hazards
+        if(strcmp(currentState.stage2.instruction.name, "lw")==0 && (currentState.stage1.instruction.rs ==
+        currentState.stage2.instruction.rt ||currentState.stage1.instruction.rt == currentState.stage2.instruction.rt))
         {
-            // Stall Should Happen
-            //if(DEBUG_MODE){printf("\n\nSTALLING\n\n");}
-            // stall();
-            // deepCopyState(&currentState, newState);
-            // if(DEBUG_MODE){printState(currentState);}
+            stall();    // Stall Process for Load Time
+            i--;        // Prevent An Instructional Skip
         }
-        //else
+        else
         {
             // Execute One Pipeline Cycle
             cycle();
-
-            // Make the New State the Current State
-            deepCopyState(&currentState, newState);
-
-            // Print Cycle Header
-            printf("********************\n");
-            printf("State at the beginning of cycle %d\n", CYCLE_COUNT);
-
-            // Print State
-            printState(currentState);
         }
+
+        // Make the New State the Current State
+        deepCopyState(&currentState, newState);
+
+        // Print Cycle Header
+        printf("********************\n");
+        printf("State at the beginning of cycle %d\n", CYCLE_COUNT);
+
+        // Print State
+        printState(currentState);
     }
 
     // Print Analytics
