@@ -34,7 +34,7 @@
  *             CONFIG               *
  *----------------------------------*/
 #define DEBUG_MODE 0
-#define MAX_INSTRUCTIONS 100 // May be an issue when stalling
+#define MAX_INSTRUCTIONS 100
 #define MAX_INS_NAME_LENGTH 5
 #define NUM_REGISTERS 32
 #define DATA_MEM 32
@@ -46,7 +46,7 @@
 
 /**
  * @struct Instruction
- * @brief ...
+ * @brief Serialized structure for an instruction.
  */
 typedef struct
 {
@@ -139,287 +139,309 @@ typedef struct
 
 // ---------- Instruction Functions ---------- //
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Set a new instruction.
+ * @return Instruction Returns an empty NOOP instruction.
  */
 Instruction newInstruction(void);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract opcode from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int Opcode bits.
  */
 int getOpCode(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract RS register from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int RS register bits.
  */
 int getRS(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract RT register from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int RT register bits.
  */
 int getRT(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract RD register from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int RD register bits.
  */
 int getRD(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract shamt/shift from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int shamt/shift bits.
  */
 int getShamt(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract func code from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int Func code bits.
  */
 int getFunc(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Extract immediate from an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return int Immediate bits.
  */
 int getImmediate(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deduce what type an unserialized instruction is.
+ * @param int ins Unserialized instruction.
+ * @return char Returns the instruction type, or X if NOOP/HALT.
  */
 char getType(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deduce the name of an unserialized instruction.
+ * @param int ins Unserialized instruction.
+ * @return char* Returns the name of the instruction as a C-String.
  */
 char* getName(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Serialize the integer representation of an instruction into an Instruction structure.
+ * @param int ins Unserialized instruction.
+ * @return Instruction Serialized Instruction.
  */
 Instruction serializeInstruction(int ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deduce the readable version of a register code.
+ * @param int reg Register integer representation. 
+ * @return char* Returns the name of the register as a c-string.
  */
 char* translateRegister(int reg);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deduce the which register is the write register of the instruction.
+ * @param Instruction i
+ * @return int Returns integer representation of whatever register will be written to.
  */
 int getWriteRegister(Instruction i);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Get the read1/read2 data for stage 2.
+ * @param Instruction ins The instruction running.
+ * @param int n Read (1) or Read (2) specification. 
+ * @return int Read data.
  */
 int getReadData(Instruction ins, int n);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Copy the contents of one instruction to another.
+ * @param Instruction *c Instruction targeted for (c)opy.
+ * @param Instruction o Original instruction being copied.
+ * @return void
  */
 void deepCopyInstruction(Instruction *c, Instruction o); // (c)lone, (o)riginal;
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Print the contents of an instruction in MIPS format.
+ * @param Instruction ins
+ * @return void
  */
 void printInstructionFormatted(Instruction ins);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Print the contents of an instruction in full debug format.
+ * @param Instruction ins
+ * @return void
  */
 void printInstruction(Instruction);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Print the contents of all parsed instructions.
+ * @param Instruction ins
+ * @return void
  */
 void printInstructionList(Instruction ins[MAX_INSTRUCTIONS]);
 
 // ---------- Pipeline Functions ---------- //
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Add an instruction to the global INS list
+ * @param Instruction i Instruction to be added to the list.
+ * @return void
  */
 void addInstruction(Instruction i);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Execute the ALU op for this instruction.
+ * @param Instruction i Instruction to be executed.
+ * @return int Returns the result of the instruction's ALU operation. 
  */
 int aluOp(Instruction i);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Read a register value.
+ * @param int reg Register number to read.
+ * @return int Contents of the register read.
  */
 int readRegister(int reg);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Read a memory value.
+ * @param int address Memory address to read.
+ * @return int Retrieved/read memory value.
  */
 int readMemory(int address);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Write to memory.
+ * @param int address Address in memory to write to.
+ * @return int content Data to write to memory.
+ */
+void writeToMemory(int address, int content);
+
+/**
+ * @brief Write to a particular register.
+ * @param P_Mem_Wb MEM/WB stage structure to provide write information.
+ * @return void
  */
 void writeToRegister(P_Mem_Wb s);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Read the appropriate information if LW.
+ * @param P_Ex_Mem s Information from the read stage.
+ * @return int Read data or 0 if no read is done.
+ */
+int getWriteMem(P_Ex_Mem s);
+
+/**
+ * @brief Run a stalled cycle, injecting a NOOP operation into stage 2.
+ * @return void
  */
 void stall(void);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Execute a single cycle.
+ * @return void.
  */
 void cycle(void);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Run a parsed program in INS.
+ * @return void.
  */
 void runProgram(void);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Initialize an IF/ID stage struct.
+ * @param P_If_Id *s IF/ID Stage 1 struct to be initialized.
+ * @return void
  */
 void initStage1(P_If_Id *s);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Initialize an ID/EX stage struct.
+ * @param P_Id_Ex *s ID/EX Stage 2 struct to be initialized.
+ * @return void
  */
 void initStage2(P_Id_Ex *s);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Initialize an EX/MEM stage struct.
+ * @param P_Ex_Mem *s EX/MEM Stage 3 struct to be initialized.
+ * @return void
  */
 void initStage3(P_Ex_Mem *s);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Initialize an MEM/WB stage struct.
+ * @param P_Mem_Wb *s MEM/WB Stage 4 struct to be initialized.
+ * @return void
  */
 void initStage4(P_Mem_Wb *s);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Initialize a state (all stages) struct.
+ * @param State *s State to initialize.
+ * @return void
  */
 void initState(State *s);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deep copy a stage 1 structure to another stage 1 structure.
+ * @param P_If_Id *c Structure targeted to be (c)opied to.
+ * @param P_If_Id o Structure being copied
+ * @return void
  */
 void deepCopyStage1(P_If_Id *c, P_If_Id o);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deep copy a stage 2 structure to another stage 2 structure.
+ * @param P_Id_Ex *c Structure targeted to be (c)opied to.
+ * @param P_Id_Ex o Structure being copied
+ * @return void
  */
 void deepCopyStage2(P_Id_Ex *c, P_Id_Ex o);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deep copy a stage 3 structure to another stage 3 structure.
+ * @param P_Ex_Mem *c Structure targeted to be (c)opied to.
+ * @param P_Ex_Mem o Structure being copied
+ * @return void
  */
 void deepCopyStage3(P_Ex_Mem *c, P_Ex_Mem o);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deep copy a stage 4 structure to another stage 4 structure.
+ * @param P_Mem_Wb *c Structure targeted to be (c)opied to.
+ * @param P_Mem_Wb o Structure being copied
+ * @return void
  */
 void deepCopyStage4(P_Mem_Wb *c, P_Mem_Wb o);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Deep copy all stages of a state to another state.
+ * @param State *c State targeted to be (c)opied to.
+ * @param State o (O)riginal state targeted to be (c)opied to.
+ * @return void
  */
 void deepCopyState(State *c, State o);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Print a state in a formatted manner.
+ * @param State s State to print.
+ * @return void
  */
 void printState(State s);
 
 // ---------- Tool Functions ---------- //
+/**
+ * @brief Initialize the simulator to run a program.
+ * @return void
+ */
 void init();
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Get a specified number of right-most bits.
+ * @param int orig Number to get data from.
+ * @param int numBits Number of bits to extract.
+ * @return int The rightmost (numbits) of (orig).
  */
 int rightMostBits(int orig, int numBits);
 
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Parse standard input into an INS instruction array.
+ * @return void
  */
 void parseInput();
 
 // ---------- Debug Functions ---------- //
 /**
- * @brief msg
- * @param type name msg
- * @return type msg
+ * @brief Debug function used to display an int in binary.
+ * @param unsigned n Unsigned integer to display.
+ * @return void.
+ * @author G4G
  */
 void bin(unsigned n);
 
@@ -635,7 +657,6 @@ char* translateRegister(int reg)
 
 int getWriteRegister(Instruction i)
 {
-    //@todo - Improvement observation, I think this corresponds to the type
     if(strcmp(i.name, "add") == 0)
         return i.rd;
     else if(strcmp(i.name, "sub") == 0)
@@ -662,36 +683,7 @@ int getWriteRegister(Instruction i)
 
 int getReadData(Instruction ins, int n)
 {
-    if(strcmp(ins.name, "add") == 0)
-    {
-        if(n == 1)
-            return readRegister(ins.rs);
-        else if(n == 2)
-            return readRegister(ins.rt);
-        else
-            return 0;
-    }
-    else if(strcmp(ins.name, "sub") == 0)
-    {        
-        if(n == 1)
-            return readRegister(ins.rs);
-        else if(n == 2)
-            return readRegister(ins.rt);
-        else
-            return 0;
-    }
-    else if(strcmp(ins.name, "sll") == 0)
-    {        
-        if(n == 1 || n == 2)
-            return readRegister(ins.rt);
-        else
-            return 0;
-    }
-    else if(strcmp(ins.name, "noop") == 0)
-        return 0;
-    else if(strcmp(ins.name, "halt") == 0)
-        return 0;
-    else if(strcmp(ins.name, "lw") == 0)
+    if(strcmp(ins.name, "lw") == 0)
     {
         if(n == 1)
         {
@@ -701,7 +693,13 @@ int getReadData(Instruction ins, int n)
         else
             return 0;
     }
-    else if(strcmp(ins.name, "sw") == 0)
+    else if (strcmp(ins.name, "sll") == 0)\
+    {
+        return readRegister(ins.rt);
+    }
+    else if(strcmp(ins.name, "bne") == 0)
+        return 0;
+    else
     {
         if(n == 1)
             return readRegister(ins.rs);
@@ -710,24 +708,6 @@ int getReadData(Instruction ins, int n)
         else
             return 0;
     }
-    else if(strcmp(ins.name , "andi") == 0)
-    {        
-        if(n == 1)
-            return readRegister(ins.rs);
-        else
-            return 0;
-    }
-    else if(strcmp(ins.name, "ori") == 0)
-    {
-        if(n == 1)
-            return readRegister(ins.rs);
-        else
-            return 0;
-    }
-    else if(strcmp(ins.name, "bne") == 0)
-        return 0;
-    else
-        return 0;
 }
 
 void deepCopyInstruction(Instruction *c, Instruction o)
@@ -1020,7 +1000,7 @@ int readMemory(int address)
         return 0;
 }
 
-void writeToMemory(int address, int content) // todo - header
+void writeToMemory(int address, int content)
 {
     int target = (address - (NUM_INSTRUCTIONS*4))/4;
     if(target > -1 && target < DATA_MEM)
@@ -1055,7 +1035,7 @@ void writeToRegister(P_Mem_Wb s)
         return;
 }
 
-int getWriteMem(P_Ex_Mem s) // @todo - add to header
+int getWriteMem(P_Ex_Mem s)
 {
     if(strcmp(s.instruction.name, "lw") == 0)
         return readMemory(s.aluRes);
@@ -1063,7 +1043,7 @@ int getWriteMem(P_Ex_Mem s) // @todo - add to header
         return 0;
 }
 
-void stall(void) // @todo
+void stall(void)
 {
     // Write Registers
     writeToRegister(currentState.stage4);
@@ -1078,7 +1058,7 @@ void stall(void) // @todo
     deepCopyInstruction(&newState.stage3.instruction, currentState.stage2.instruction);
     deepCopyInstruction(&newState.stage4.instruction, currentState.stage3.instruction);
 
-    // Increment PC // @todo 
+    // Increment PC
     newState.stage1.pc4 = PC;
 
     // Populate ID/EX Stage (Stage 2)
@@ -1144,7 +1124,7 @@ void cycle(void)
         FORWARD_B = FORWARD_B & 0b01;
         newState.stage3.wd = currentState.stage3.aluRes;
     }
-    if((FORWARD_B & 0b01) == 0b01)
+    else if((FORWARD_B & 0b01) == 0b01)
     {
         FORWARD_B = FORWARD_B & 0b10;
         newState.stage3.wd = currentState.stage4.writeFromAlu;
@@ -1157,32 +1137,29 @@ void cycle(void)
     if(newState.stage3.wr && newState.stage3.wr == newState.stage2.rs)
     {
         FORWARD_A = FORWARD_A | 0b10;
-        if(DEBUG_MODE){printf("\n\n\nForwarding (A) %d by %d to %s\n\n\n", newState.stage3.aluRes, FORWARD_A, currentState.stage2.instruction.name);}
+        if(DEBUG_MODE){printf("\n\n\nForwarding (A) %d by %d to %s\n\n\n", newState.stage3.aluRes, FORWARD_A, newState.stage2.instruction.name);}
     }
     if(newState.stage3.wr && newState.stage3.wr == newState.stage2.rt)
     {
-        if(DEBUG_MODE)printf("\n\n\nForwarding (B) %d to %s\n\n\n", newState.stage3.aluRes,currentState.stage2.instruction.name);
+        if(DEBUG_MODE)printf("\n\n\nForwarding (B) %d to %s\n\n\n", newState.stage3.aluRes,newState.stage2.instruction.name);
         FORWARD_B = FORWARD_B | 0b10;
     }
-
 
     // Populate MEM/WB Stage (Stage 4)
     newState.stage4.writeFromMem = getWriteMem(currentState.stage3);
     newState.stage4.writeFromAlu = currentState.stage3.aluRes;
     newState.stage4.writeRegister = currentState.stage3.wr;
 
-    // Check for Hazards
+    // Check for Double Forwarding Hazards
     if(newState.stage4.writeFromAlu && newState.stage4.writeRegister == newState.stage2.rs)
     {
         if(DEBUG_MODE){printf("\n\n\n Double Forwarding (A) %d to %s\n\n\n", newState.stage4.writeFromAlu, currentState.stage2.instruction.name);}
         FORWARD_A = FORWARD_A | 0b01;
-        //FORWARD_A_VAL = newState.stage4.writeFromAlu;
     }
     else if(newState.stage4.writeFromAlu && newState.stage4.writeRegister == newState.stage2.rt)
     {
         if(DEBUG_MODE)printf("\n\n\n Double Forwarding (B) %d to %s\n\n\n", newState.stage4.writeFromAlu,currentState.stage2.instruction.name);
         FORWARD_B = FORWARD_B | 0b01;
-        //FORWARD_B_VAL = newState.stage4.writeFromAlu;
     }
 
     // Write Memory
@@ -1223,8 +1200,10 @@ void runProgram(void)
         }
 
         // Check for Stalling Hazards
-        if(strcmp(currentState.stage2.instruction.name, "lw")==0 && (currentState.stage1.instruction.rs ==
-        currentState.stage2.instruction.rt ||currentState.stage1.instruction.rt == currentState.stage2.instruction.rt))
+        if(strcmp(currentState.stage2.instruction.name, "lw")==0 && ((currentState.stage1.instruction.rs ==
+        currentState.stage2.instruction.rt && currentState.stage2.instruction.rt != getWriteRegister(currentState.stage2.instruction)) 
+        || (currentState.stage1.instruction.rt == currentState.stage2.instruction.rt  && currentState.stage2.instruction.rt
+        != getWriteRegister(currentState.stage2.instruction))))
         {
             stall();    // Stall Process for Load Time
             i--;        // Prevent An Instructional Skip
