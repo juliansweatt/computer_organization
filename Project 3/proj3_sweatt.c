@@ -12,6 +12,8 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
+#define DEBUG_MODE 1
+#define MAX_LINES 100
 
 /*----------------------------------*
  *              HEADER              *
@@ -65,10 +67,28 @@ void addLine(char operation, int address);
  */
 void printLines(void);
 
+/**
+ * @brief Print block size, number of sets, associativity, and list of lines from input.
+ * @return void
+ * @private This is a debug function.
+ */
+void printInput(void);
+
+// ----------- Utilities ---------- //
+/**
+ * @brief Parse input from stdin. Expects 3 integers, each on seperate lines, followed by
+ *        an indefinite list of W/R address lines (char and int).
+ * @return void
+ */
+void parseInput(void);
+
 /*----------------------------------*
  *             Globals               *
  *----------------------------------*/
 LineList * LINE_LIST;
+unsigned int BLOCK_SIZE;
+unsigned int NUM_SETS;
+unsigned int SET_ASSOCIATIVITY;
 
 /*----------------------------------*
  *          IMPLEMENTATIONS         *
@@ -94,7 +114,7 @@ void addLine(char operation, int address)
     LINE_LIST->lines[LINE_LIST->size-1].operation = operation;
 }
 
-void printLines()
+void printLines(void)
 {
     int i;
     for(i = 0; i < LINE_LIST->size; i++)
@@ -103,15 +123,44 @@ void printLines()
     }
 }
 
+void parseInput(void)
+{
+    // Get Base Variables
+    scanf("%d", &BLOCK_SIZE);
+    scanf("%d", &NUM_SETS);
+    scanf("%d\n", &SET_ASSOCIATIVITY);
+
+    // Indefinite Line Input
+    char lineBuffer[256];
+    char op;
+    int add;
+    while(fgets(lineBuffer, 256, stdin))
+    {
+        sscanf(lineBuffer,"%c %d", &op, &add);
+        addLine(op,add);
+    }
+}
+
+void printInput(void)
+{
+    printf("Block Size: %d\nNumber of Sets: %d\nSet Associativity: %d\nLines: %d\n", BLOCK_SIZE, NUM_SETS, SET_ASSOCIATIVITY, LINE_LIST->size);
+    printLines();
+}
+
 /*----------------------------------*
  *                MAIN              *
  *----------------------------------*/
 int main()
 {
+    // Initialize Dynamic Lines
     initLines();
-    addLine('A',1);
-    addLine('B',2);
-    addLine('C',3);
-    printLines();
+
+    // Parse Input
+    parseInput();
+
+    // [Debug]: Print Parsed Data
+    if(DEBUG_MODE){printInput();}
+
+    // Deinitialize Dynamic Lines
     deinitLines();
 }
