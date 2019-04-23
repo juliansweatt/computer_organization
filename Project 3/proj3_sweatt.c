@@ -39,6 +39,24 @@ typedef struct
     unsigned int size;
 } LineList;
 
+/**
+ * @struct Set
+ * @brief Set within a cache;
+ */
+typedef struct
+{
+    int * data;
+} Set;
+
+/**
+ * @struct Cache
+ * @brief General purpose cache.
+ */
+typedef struct
+{
+    Set* sets;
+} Cache;
+
 // ---- Dynamic Input Functions --- //
 /**
  * @brief Initialize a dynamic list of lines.
@@ -74,6 +92,32 @@ void printLines(void);
  */
 void printInput(void);
 
+// -------- Cache Functions ------- //
+/**
+ * @brief Initialize a set associative cache.
+ * @return void
+ */
+void initCache(void);
+
+/**
+ * @brief Deinitialize the set associative cache.
+ * @return void
+ */
+void deinitCache(void);
+
+/**
+ * @brief Reset the set associative cache's contents.
+ * @return void
+ */
+void clearCache(void);
+
+/**
+ * @brief Print the set associative cache's contents.
+ * @return void
+ * @private This is a debug function.
+ */
+void printCache(void);
+
 // ----------- Utilities ---------- //
 /**
  * @brief Parse input from stdin. Expects 3 integers, each on seperate lines, followed by
@@ -86,6 +130,7 @@ void parseInput(void);
  *             Globals               *
  *----------------------------------*/
 LineList * LINE_LIST;
+Cache* CACHE;
 unsigned int BLOCK_SIZE;
 unsigned int NUM_SETS;
 unsigned int SET_ASSOCIATIVITY;
@@ -141,6 +186,54 @@ void parseInput(void)
     }
 }
 
+void initCache(void)
+{
+    CACHE = (Cache*)malloc(sizeof(Cache));
+    CACHE->sets = (Set*)calloc(NUM_SETS,sizeof(Set));
+    int i;
+    for(i = 0; i < NUM_SETS; i++)
+    {
+        CACHE->sets[i].data = (int*)calloc(SET_ASSOCIATIVITY,sizeof(int));
+    }
+}
+
+void deinitCache(void)
+{
+    int i;
+    for(i = 0; i < NUM_SETS; i++)
+    {
+        free(CACHE->sets[i].data);
+    }
+    free(CACHE->sets);
+    free(CACHE);
+}
+
+void resetCache(void)
+{
+    int i;
+    for(i = 0; i < NUM_SETS; i++)
+    {
+        int j;
+        for(j = 0; j < SET_ASSOCIATIVITY; j++)
+        {
+            CACHE->sets[i].data[j] = 0;
+        }
+    }
+}
+
+void printCache(void)
+{
+    int i;
+    for(i = 0; i < NUM_SETS; i++)
+    {
+        int j;
+        for(j = 0; j < SET_ASSOCIATIVITY; j++)
+        {
+            printf("%d", CACHE->sets[i].data[j]);
+        }
+    }
+}
+
 void printInput(void)
 {
     printf("Block Size: %d\nNumber of Sets: %d\nSet Associativity: %d\nLines: %d\n", BLOCK_SIZE, NUM_SETS, SET_ASSOCIATIVITY, LINE_LIST->size);
@@ -161,6 +254,15 @@ int main()
     // [Debug]: Print Parsed Data
     if(DEBUG_MODE){printInput();}
 
-    // Deinitialize Dynamic Lines
+    // Create Cache
+    initCache();
+
+    // @todo Caching Patterns
+
+    // [Debug]: Print Cache
+    if(DEBUG_MODE){printCache();}
+
+    // Deinitialize
     deinitLines();
+    deinitCache();
 }
