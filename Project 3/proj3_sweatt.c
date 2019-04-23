@@ -8,6 +8,7 @@
  *----------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 /*----------------------------------*
  *             CONFIG               *
@@ -55,6 +56,9 @@ typedef struct
 typedef struct
 {
     Set* sets;
+    unsigned int hits;
+    unsigned int misses;
+    unsigned int memrefs;
 } Cache;
 
 // ---- Dynamic Input Functions --- //
@@ -109,7 +113,26 @@ void deinitCache(void);
  * @brief Reset the set associative cache's contents.
  * @return void
  */
-void clearCache(void);
+void resetCache(void);
+
+/**
+ * @brief Calculate bitwise breakdown of the address.
+ * @return void
+ */
+void calculateAddressBits(void);
+
+/**
+ * @brief Print the shared and basic information of the set associative cache.
+ * @return void
+ */
+void printHeader(void);
+
+/**
+ * @brief Print the cache report after processing.
+ * @param char Method of caching to report Write (B)ack or Write (T)hrough.
+ * @return void
+ */
+void printCacheReport(char cachingMethod);
 
 /**
  * @brief Print the set associative cache's contents.
@@ -123,6 +146,7 @@ void printCache(void);
  * @brief Parse input from stdin. Expects 3 integers, each on seperate lines, followed by
  *        an indefinite list of W/R address lines (char and int).
  * @return void
+ * @private This is a debug function.
  */
 void parseInput(void);
 
@@ -134,6 +158,9 @@ Cache* CACHE;
 unsigned int BLOCK_SIZE;
 unsigned int NUM_SETS;
 unsigned int SET_ASSOCIATIVITY;
+unsigned int OFFSET_BITS;
+unsigned int INDEX_BITS;
+unsigned int TAG_BITS;
 
 /*----------------------------------*
  *          IMPLEMENTATIONS         *
@@ -195,6 +222,10 @@ void initCache(void)
     {
         CACHE->sets[i].data = (int*)calloc(SET_ASSOCIATIVITY,sizeof(int));
     }
+
+    CACHE->hits = 0;
+    CACHE->misses = 0;
+    CACHE->memrefs = 0;
 }
 
 void deinitCache(void)
@@ -219,6 +250,34 @@ void resetCache(void)
             CACHE->sets[i].data[j] = 0;
         }
     }
+
+    CACHE->hits = 0;
+    CACHE->misses = 0;
+    CACHE->memrefs = 0;
+}
+
+void calculateAddressBits(void)
+{
+    OFFSET_BITS = log2(BLOCK_SIZE);
+    INDEX_BITS = log2(NUM_SETS);
+    TAG_BITS = 32 - OFFSET_BITS - INDEX_BITS;
+}
+
+void printHeader(void)
+{
+    printf("Block Size: %d\nNumber of Sets: %d\nSet Associativity: %d\n", BLOCK_SIZE, NUM_SETS, SET_ASSOCIATIVITY);
+    printf("Number of offset bits: %d\nNumber of index bits: %d\nNumber of tag bits: %d\n", OFFSET_BITS, INDEX_BITS, TAG_BITS);
+}
+
+void printCacheReport(char cachingMethod)
+{
+    char* div = "****************************************\n";
+    printf("%s",div);
+    if(cachingMethod == 'T')
+        printf("Write-through with No Write Allocate\n");
+    else if(cachingMethod == 'B')
+        printf("Write-back with Write Allocate\n");
+    printf("%s",div);
 }
 
 void printCache(void)
@@ -257,7 +316,15 @@ int main()
     // Create Cache
     initCache();
 
-    // @todo Caching Patterns
+    // Calculate & Print Common/Shared Cache Information
+    calculateAddressBits();
+    printHeader();
+
+    // @todo Execute Caching Patterns
+
+    // @todo Print Cache Reports
+    printCacheReport('T');
+    printCacheReport('B');
 
     // [Debug]: Print Cache
     if(DEBUG_MODE){printCache();}
