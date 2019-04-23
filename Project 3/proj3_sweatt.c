@@ -46,7 +46,7 @@ typedef struct
  */
 typedef struct
 {
-    int * data;
+    unsigned int * data;
 } Set;
 
 /**
@@ -122,6 +122,34 @@ void resetCache(void);
 void calculateAddressBits(void);
 
 /**
+ * @brief Extract the tag bits from an address.
+ * @param unsigned int address Address to extract from.
+ * @return unsigned int Tag bits.
+ */
+unsigned int getTagBits(unsigned int address);
+
+/**
+ * @brief Extract the index bits from an address.
+ * @param unsigned int address Address to extract from.
+ * @return unsigned int Index bits.
+ */
+unsigned int getIndexBits(unsigned int address);
+
+/**
+ * @brief Extract the offset bits from an address.
+ * @param unsigned int address Address to extract from.
+ * @return unsigned int Offset bits.
+ */
+unsigned int getOffsetBits(unsigned int address);
+
+/**
+ * @brief Simulate caching instructions using a particualr method.
+ * @param char Method of caching to use, Write (B)ack or Write (T)hrough.
+ * @return void
+ */
+void simulate(char cachingMethod);
+
+/**
  * @brief Print the shared and basic information of the set associative cache.
  * @return void
  */
@@ -141,6 +169,13 @@ void printCacheReport(char cachingMethod);
  */
 void printCache(void);
 
+/**
+ * @brief Print translated line addresses.
+ * @return void
+ * @private This is a debug function.
+ */
+void printTranslatedLines(void);
+
 // ----------- Utilities ---------- //
 /**
  * @brief Parse input from stdin. Expects 3 integers, each on seperate lines, followed by
@@ -149,6 +184,14 @@ void printCache(void);
  * @private This is a debug function.
  */
 void parseInput(void);
+
+/**
+ * @brief Calculate the log with explicit base.
+ * @param int num The number to log.
+ * @param int base The base of the log.
+ * @return void
+ */
+double logBase(int num, int base);
 
 /*----------------------------------*
  *             Globals               *
@@ -220,7 +263,7 @@ void initCache(void)
     int i;
     for(i = 0; i < NUM_SETS; i++)
     {
-        CACHE->sets[i].data = (int*)calloc(SET_ASSOCIATIVITY,sizeof(int));
+        CACHE->sets[i].data = (unsigned int*)calloc(SET_ASSOCIATIVITY,sizeof(unsigned int));
     }
 
     CACHE->hits = 0;
@@ -258,9 +301,38 @@ void resetCache(void)
 
 void calculateAddressBits(void)
 {
-    OFFSET_BITS = log2(BLOCK_SIZE);
-    INDEX_BITS = log2(NUM_SETS);
+    OFFSET_BITS = logBase(BLOCK_SIZE,2);
+    INDEX_BITS = logBase(NUM_SETS,2);
     TAG_BITS = 32 - OFFSET_BITS - INDEX_BITS;
+}
+
+unsigned int getTagBits(unsigned int address)
+{
+    return address >> (OFFSET_BITS+INDEX_BITS);
+}
+
+unsigned int getIndexBits(unsigned int address)
+{
+    address = address << TAG_BITS;
+    return address >> (TAG_BITS + OFFSET_BITS);
+}
+
+unsigned int getOffsetBits(unsigned int address)
+{
+    address = address << (TAG_BITS+INDEX_BITS);
+    return address >> (TAG_BITS+INDEX_BITS);
+}
+
+void simulate(char cachingMethod)
+{
+    if(cachingMethod == 'T')
+    {
+
+    }
+    else if(cachingMethod == 'B')
+    {
+
+    }
 }
 
 void printHeader(void)
@@ -285,11 +357,22 @@ void printCache(void)
     int i;
     for(i = 0; i < NUM_SETS; i++)
     {
+        printf("Set %d: ", i);
         int j;
         for(j = 0; j < SET_ASSOCIATIVITY; j++)
         {
-            printf("%d", CACHE->sets[i].data[j]);
+            printf("%d ", CACHE->sets[i].data[j]);
         }
+        printf("\n");
+    }
+}
+
+void printTranslatedLines(void)
+{
+    int i;
+    for(i = 0; i < LINE_LIST->size; i++)
+    {
+        printf("%c %d %d %d %d\n", LINE_LIST->lines[i].operation, LINE_LIST->lines[i].address, getTagBits(LINE_LIST->lines[i].address), getIndexBits(LINE_LIST->lines[i].address), getOffsetBits(LINE_LIST->lines[i].address));
     }
 }
 
@@ -297,6 +380,11 @@ void printInput(void)
 {
     printf("Block Size: %d\nNumber of Sets: %d\nSet Associativity: %d\nLines: %d\n", BLOCK_SIZE, NUM_SETS, SET_ASSOCIATIVITY, LINE_LIST->size);
     printLines();
+}
+
+double logBase(int num, int base)
+{
+    return (log(num)/log(base));
 }
 
 /*----------------------------------*
@@ -320,10 +408,22 @@ int main()
     calculateAddressBits();
     printHeader();
 
-    // @todo Execute Caching Patterns
+    // [Debug]: Print Translated Lines
+    if(DEBUG_MODE){printTranslatedLines();}
 
-    // @todo Print Cache Reports
+    // Execute Write-Through, No-Write-Allocate Caching Patterns
+    simulate('T');
+
+    // Print Write-Through, No-Write-Allocate Cache Report
     printCacheReport('T');
+
+    // Reset for Next Strategy
+    resetCache();
+    
+    // Execute Write-Back, Write-Allocate Caching Patterns
+    simulate('B');
+
+    // Print Write-Back, Write-Allocate Cache Report
     printCacheReport('B');
 
     // [Debug]: Print Cache
