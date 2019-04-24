@@ -350,18 +350,25 @@ void cacheLine(Line* l, char cachingMethod)
     {
         if(CACHE->sets[getIndexBits(l->address)].data[setTarget] == getTagBits(l->address))
         {
-            // Tag present, update will occur
-            if(l->operation == 'W')
+            // Hit (Block Tag Exists)
+            if(cachingMethod == 'T')
             {
-                // UPDATE OCCURS
-                CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
-                CACHE->memrefs += 1;
+                if(l->operation == 'W')
+                {
+                    CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                    CACHE->memrefs += 1;
+                }
+            }
+            else if(cachingMethod == 'B')
+            {
+                if(l->operation == 'W')
+                {
+                    CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                }
             }
             CACHE->hits += 1; // @todo this does not mean a hit happened, check policy
             return;
         }
-
-        // Iterate to find a blank point in the cache
         setTarget += 1;
     }
     CACHE->misses += 1;
@@ -372,11 +379,18 @@ void cacheLine(Line* l, char cachingMethod)
     {
         if(CACHE->sets[getIndexBits(l->address)].data[setTarget] < 0)
         {
-            // Empty Block to Use
-            if(l->operation == 'R')
+            // Free Block Available
+
+            if(cachingMethod == 'T')
             {
-                // UPDATE OCCURS
-                CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address); // todo this should insert like an actual cache with LRU
+                if(l->operation == 'R')
+                {
+                    CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                }
+            }
+            else if(cachingMethod == 'B')
+            {
+                CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
             }
             CACHE->memrefs += 1;
             return;
@@ -395,6 +409,10 @@ void simulate(char cachingMethod)
     for(i = 0; i < LINE_LIST->size; i++)
     {
         if(cachingMethod == 'T')
+        {
+            cacheLine(&LINE_LIST->lines[i], cachingMethod);
+        }
+        else if(cachingMethod == 'B')
         {
             cacheLine(&LINE_LIST->lines[i], cachingMethod);
         }
