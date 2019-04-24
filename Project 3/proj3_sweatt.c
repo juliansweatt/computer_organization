@@ -41,12 +41,23 @@ typedef struct
 } LineList;
 
 /**
+ * @struct Block
+ * @brief Block within a set;
+ */
+typedef struct
+{
+    int address;
+    char dirty;
+    int lastused;
+} Block;
+
+/**
  * @struct Set
  * @brief Set within a cache;
  */
 typedef struct
 {
-    int * data;
+    Block * blocks;
 } Set;
 
 /**
@@ -272,12 +283,14 @@ void initCache(void)
     int i;
     for(i = 0; i < NUM_SETS; i++)
     {
-        CACHE->sets[i].data = (int*)calloc(SET_ASSOCIATIVITY,sizeof(int));
+        CACHE->sets[i].blocks = (Block*)calloc(SET_ASSOCIATIVITY,sizeof(Block));
         
         int j;
         for(j = 0; j < SET_ASSOCIATIVITY; j++)
         {
-            CACHE->sets[i].data[j] = -1;
+            CACHE->sets[i].blocks[j].address = -1;
+            CACHE->sets[i].blocks[j].dirty = 0;
+            CACHE->sets[i].blocks[j].lastused = 0;
         }
     }
 
@@ -292,7 +305,7 @@ void deinitCache(void)
     int i;
     for(i = 0; i < NUM_SETS; i++)
     {
-        free(CACHE->sets[i].data);
+        free(CACHE->sets[i].blocks);
     }
     free(CACHE->sets);
     free(CACHE);
@@ -306,7 +319,9 @@ void resetCache(void)
         int j;
         for(j = 0; j < SET_ASSOCIATIVITY; j++)
         {
-            CACHE->sets[i].data[j] = -1;
+            CACHE->sets[i].blocks[j].address = -1;
+            CACHE->sets[i].blocks[j].dirty = 0;
+            CACHE->sets[i].blocks[j].lastused = 0;
         }
     }
 
@@ -348,22 +363,30 @@ void cacheLine(Line* l, char cachingMethod)
     // Check for Existing Identical Tag to Update
     while(setTarget < SET_ASSOCIATIVITY)
     {
-        if(CACHE->sets[getIndexBits(l->address)].data[setTarget] == getTagBits(l->address))
+        if(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address == getTagBits(l->address))
         {
             // Hit (Block Tag Exists)
             if(cachingMethod == 'T')
             {
-                if(l->operation == 'W')
+                if(l->operation == 'R')
                 {
-                    CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                    
+                }
+                else if(l->operation == 'W')
+                {
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = getTagBits(l->address);
                     CACHE->memrefs += 1;
                 }
             }
             else if(cachingMethod == 'B')
             {
-                if(l->operation == 'W')
+                if(l->operation == 'R')
                 {
-                    CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+
+                }
+                else if(l->operation == 'W')
+                {
+                    
                 }
             }
             CACHE->hits += 1; // @todo this does not mean a hit happened, check policy
@@ -377,22 +400,32 @@ void cacheLine(Line* l, char cachingMethod)
     setTarget = 0;
     while(setTarget < SET_ASSOCIATIVITY)
     {
-        if(CACHE->sets[getIndexBits(l->address)].data[setTarget] < 0)
+        if(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address < 0)
         {
             // Free Block Available
-
             if(cachingMethod == 'T')
             {
                 if(l->operation == 'R')
                 {
-                    CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = getTagBits(l->address);
+                    CACHE->memrefs += 1;
+                }
+                else if(l->operation == 'W')
+                {
+                    CACHE->memrefs += 1;
                 }
             }
             else if(cachingMethod == 'B')
             {
-                CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                if(l->operation == 'R')
+                {
+                    
+                }
+                else if(l->operation == 'W')
+                {
+
+                }
             }
-            CACHE->memrefs += 1;
             return;
         }
         // Iterate to find a blank point in the cache
@@ -453,7 +486,7 @@ void printCache(void)
         int j;
         for(j = 0; j < SET_ASSOCIATIVITY; j++)
         {
-            printf("%d ", CACHE->sets[i].data[j]);
+            printf("%d ", CACHE->sets[i].blocks[j].address);
         }
         printf("\n");
     }
@@ -490,7 +523,7 @@ int main()
     // Parse Input
     parseInput();
 
-    // [Debug]: Print Parsed Data
+    // [Debug]: Print Parsed address
     if(DEBUG_MODE){printInput();}
 
     // Create Cache
