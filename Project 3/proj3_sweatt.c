@@ -13,7 +13,7 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 #define MAX_LINES 100
 
 /*----------------------------------*
@@ -46,7 +46,7 @@ typedef struct
  */
 typedef struct
 {
-    unsigned int * data;
+    int * data;
 } Set;
 
 /**
@@ -59,6 +59,7 @@ typedef struct
     unsigned int hits;
     unsigned int misses;
     unsigned int memrefs;
+    unsigned int cacheReferences;
 } Cache;
 
 // ---- Dynamic Input Functions --- //
@@ -143,8 +144,16 @@ unsigned int getIndexBits(unsigned int address);
 unsigned int getOffsetBits(unsigned int address);
 
 /**
+ * @brief Cache a line.
+ * @param Line* l Line to add to the cache.
+ * @param cachingMethod char Method of caching to use, Write (B)ack or Write (T)hrough.
+ * @return void
+ */
+void cacheLine(Line* l, char cachingMethod);
+
+/**
  * @brief Simulate caching instructions using a particualr method.
- * @param char Method of caching to use, Write (B)ack or Write (T)hrough.
+ * @param char cachingMethod Method of caching to use, Write (B)ack or Write (T)hrough.
  * @return void
  */
 void simulate(char cachingMethod);
@@ -157,7 +166,7 @@ void printHeader(void);
 
 /**
  * @brief Print the cache report after processing.
- * @param char Method of caching to report Write (B)ack or Write (T)hrough.
+ * @param char cachingMethod Method of caching to report Write (B)ack or Write (T)hrough.
  * @return void
  */
 void printCacheReport(char cachingMethod);
@@ -263,12 +272,19 @@ void initCache(void)
     int i;
     for(i = 0; i < NUM_SETS; i++)
     {
-        CACHE->sets[i].data = (unsigned int*)calloc(SET_ASSOCIATIVITY,sizeof(unsigned int));
+        CACHE->sets[i].data = (int*)calloc(SET_ASSOCIATIVITY,sizeof(int));
+        
+        int j;
+        for(j = 0; j < SET_ASSOCIATIVITY; j++)
+        {
+            CACHE->sets[i].data[j] = -1;
+        }
     }
 
     CACHE->hits = 0;
     CACHE->misses = 0;
     CACHE->memrefs = 0;
+    CACHE->cacheReferences = 0;
 }
 
 void deinitCache(void)
@@ -290,13 +306,14 @@ void resetCache(void)
         int j;
         for(j = 0; j < SET_ASSOCIATIVITY; j++)
         {
-            CACHE->sets[i].data[j] = 0;
+            CACHE->sets[i].data[j] = -1;
         }
     }
 
     CACHE->hits = 0;
     CACHE->misses = 0;
     CACHE->memrefs = 0;
+    CACHE->cacheReferences = 0;
 }
 
 void calculateAddressBits(void)
@@ -323,16 +340,68 @@ unsigned int getOffsetBits(unsigned int address)
     return address >> (TAG_BITS+INDEX_BITS);
 }
 
+void cacheLine(Line* l, char cachingMethod)
+{
+    CACHE->cacheReferences += 1;
+
+    unsigned int setTarget = 0;
+    // Check for Existing Identical Tag to Update
+    while(setTarget < SET_ASSOCIATIVITY)
+    {
+        if(CACHE->sets[getIndexBits(l->address)].data[setTarget] == getTagBits(l->address))
+        {
+            // Tag present, update will occur
+            if(l->operation == 'W')
+            {
+                // UPDATE OCCURS
+                CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address);
+                CACHE->memrefs += 1;
+            }
+            CACHE->hits += 1; // @todo this does not mean a hit happened, check policy
+            return;
+        }
+
+        // Iterate to find a blank point in the cache
+        setTarget += 1;
+    }
+    CACHE->misses += 1;
+
+    // No Existing Identical Tag, Seek Empty Block
+    setTarget = 0;
+    while(setTarget < SET_ASSOCIATIVITY)
+    {
+        if(CACHE->sets[getIndexBits(l->address)].data[setTarget] < 0)
+        {
+            // Empty Block to Use
+            if(l->operation == 'R')
+            {
+                // UPDATE OCCURS
+                CACHE->sets[getIndexBits(l->address)].data[setTarget] = getTagBits(l->address); // todo this should insert like an actual cache with LRU
+            }
+            CACHE->memrefs += 1;
+            return;
+        }
+        // Iterate to find a blank point in the cache
+        setTarget += 1;
+    }
+
+    // No Update, No Empty Space, Implement Replacement Strategy
+    // @todo
+}
+
 void simulate(char cachingMethod)
 {
-    if(cachingMethod == 'T')
+    int i;
+    for(i = 0; i < LINE_LIST->size; i++)
     {
-
+        if(cachingMethod == 'T')
+        {
+            cacheLine(&LINE_LIST->lines[i], cachingMethod);
+        }
     }
-    else if(cachingMethod == 'B')
-    {
 
-    }
+    // [Debug]: Print Cache
+    if(DEBUG_MODE){printCache();}
 }
 
 void printHeader(void)
@@ -350,6 +419,11 @@ void printCacheReport(char cachingMethod)
     else if(cachingMethod == 'B')
         printf("Write-back with Write Allocate\n");
     printf("%s",div);
+
+    printf("Total number of references: %d\n", CACHE->cacheReferences);
+    printf("Hits: %d\n", CACHE->hits);
+    printf("Misses: %d\n", CACHE->misses);
+    printf("Memory References: %d\n", CACHE->memrefs);
 }
 
 void printCache(void)
@@ -425,9 +499,6 @@ int main()
 
     // Print Write-Back, Write-Allocate Cache Report
     printCacheReport('B');
-
-    // [Debug]: Print Cache
-    if(DEBUG_MODE){printCache();}
 
     // Deinitialize
     deinitLines();
