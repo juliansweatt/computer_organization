@@ -363,18 +363,18 @@ void cacheLine(Line* l, char cachingMethod)
     // Check for Existing Identical Tag to Update
     while(setTarget < SET_ASSOCIATIVITY)
     {
-        if(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address == getTagBits(l->address))
+        if(getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address) == getTagBits(l->address))
         {
             // Hit (Block Tag Exists)
             if(cachingMethod == 'T')
             {
                 if(l->operation == 'R')
                 {
-                    
+                    // No Memrefs or Cache Updating on Read
                 }
                 else if(l->operation == 'W')
                 {
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = getTagBits(l->address);
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
                     CACHE->memrefs += 1;
                 }
             }
@@ -382,7 +382,7 @@ void cacheLine(Line* l, char cachingMethod)
             {
                 if(l->operation == 'R')
                 {
-
+                    // No Memrefs or Cache Updating on Read
                 }
                 else if(l->operation == 'W')
                 {
@@ -407,7 +407,7 @@ void cacheLine(Line* l, char cachingMethod)
             {
                 if(l->operation == 'R')
                 {
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = getTagBits(l->address);
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
                     CACHE->memrefs += 1;
                 }
                 else if(l->operation == 'W')
