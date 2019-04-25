@@ -154,6 +154,8 @@ unsigned int getIndexBits(unsigned int address);
  */
 unsigned int getOffsetBits(unsigned int address);
 
+void lruReplace(Line* l, int lineNum); // @TODO
+
 /**
  * @brief Cache a line.
  * @param Line* l Line to add to the cache.
@@ -356,93 +358,9 @@ unsigned int getOffsetBits(unsigned int address)
     return address >> (TAG_BITS+INDEX_BITS);
 }
 
-void cacheLine(Line* l, int lineNum, char cachingMethod)
+void lruReplace(Line* l, int lineNum)
 {
-    CACHE->cacheReferences += 1;
-
-    unsigned int setTarget = 0;
-    // Check for Existing Identical Tag to Update
-    while(setTarget < SET_ASSOCIATIVITY)
-    {
-        if(getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address) == getTagBits(l->address))
-        {
-            CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
-            // Hit (Block Tag Exists)
-            if(cachingMethod == 'T')
-            {
-                if(l->operation == 'R')
-                {
-                    // No Memrefs or Cache Updating on Read
-                }
-                else if(l->operation == 'W')
-                {
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
-                    CACHE->memrefs += 1;
-                }
-            }
-            else if(cachingMethod == 'B')
-            {
-                if(l->operation == 'R')
-                {
-                    // No Memrefs or Cache Updating on Read
-                }
-                else if(l->operation == 'W')
-                {
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].dirty = 1;
-                }
-            }
-            CACHE->hits += 1;
-            return;
-        }
-        setTarget += 1;
-    }
-    CACHE->misses += 1;
-
-    // No Existing Identical Tag, Seek Empty Block
-    setTarget = 0;
-    while(setTarget < SET_ASSOCIATIVITY)
-    {
-        if(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address < 0)
-        {
-            // Free Block Available
-            if(cachingMethod == 'T')
-            {
-                if(l->operation == 'R')
-                {
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
-                    CACHE->memrefs += 1;
-                }
-                else if(l->operation == 'W')
-                {
-                    CACHE->memrefs += 1;
-                }
-            }
-            else if(cachingMethod == 'B')
-            {
-                if(l->operation == 'R')
-                {
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
-                    CACHE->memrefs += 1;
-                }
-                else if(l->operation == 'W')
-                {
-                    CACHE->memrefs += 1;
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
-                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].dirty = 1;
-                }
-            }
-            return;
-        }
-        // Iterate to find a blank point in the cache
-        setTarget += 1;
-    }
-
-    // No Update, No Empty Space, Implement LRU Replacement Strategy
-    setTarget = 0;
+    int setTarget = 0;
     int replacementSet = 0;
     int lru = CACHE->sets[getIndexBits(l->address)].blocks[0].lastused;
     while(setTarget < SET_ASSOCIATIVITY)
@@ -456,14 +374,114 @@ void cacheLine(Line* l, int lineNum, char cachingMethod)
     }
     printf("Tag %d replaced by tag %d (Address %d to %d)\n",getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address), getTagBits(l->address), CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address, l->address);
     CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].lastused = lineNum;
-    if(l->operation == 'R')
-    {   
-        CACHE->memrefs += 1;
-        CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address = l->address;
-    }
-    else if(l->operation == 'W')
+    CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address = l->address;
+}
+
+void cacheLine(Line* l, int lineNum, char cachingMethod)
+{
+    CACHE->cacheReferences += 1;
+    int hit = -1;
+    int freeSpace = -1;
+
+    unsigned int setTarget = 0;
+    // Check for Existing Identical Tag to Update
+    while(setTarget < SET_ASSOCIATIVITY)
     {
-        CACHE->memrefs += 1;
+        if(getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address) == getTagBits(l->address))
+        {
+            hit = setTarget;
+            CACHE->hits += 1;
+            break;
+        }
+        setTarget += 1;
+    }
+
+    // No Existing Identical Tag, Seek Empty Block
+    if(hit<0)
+    {
+        CACHE->misses += 1;
+        setTarget = 0;
+        while(setTarget < SET_ASSOCIATIVITY)
+        {
+            if(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address < 0)
+            {
+                freeSpace = setTarget;
+                break;
+            }
+            // Iterate to find a blank point in the cache
+            setTarget += 1;
+        }
+    }
+
+    // ---------- Process ----------
+    if(cachingMethod == 'T')
+    {
+        // Write Through Rules
+        if(l->operation == 'R')
+        {
+            if(hit > -1)
+            {
+                // Read Hit
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].lastused = lineNum;
+            }
+            else
+            {
+                // Read Miss
+                CACHE->memrefs += 1;
+
+                if(freeSpace > -1)
+                {
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].lastused = lineNum;
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].address = l->address;
+                }
+                else
+                {
+                    // LRU Replacement
+                    lruReplace(l,lineNum);
+                }
+            }
+        }
+        else if(l->operation == 'W')
+        {
+            if(hit > -1)
+            {
+                // Write Hit
+                CACHE->memrefs += 1;
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].address = l->address;
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].lastused = lineNum;
+            }
+            else
+            {
+                // Write Miss
+                CACHE->memrefs += 1;
+            }
+        }
+    }
+    else if(cachingMethod == 'B')
+    {
+        // Write Back Rules
+        if(l->operation == 'R')
+        {
+            if(hit > 0)
+            {
+                // Read Hit
+            }
+            else
+            {
+                // Read Miss
+            }
+        }
+        else if(l->operation == 'W')
+        {
+            if(hit > 0)
+            {
+                // Write Hit
+            }
+            else
+            {
+                // Write Miss
+            }
+        }
     }
 }
 
