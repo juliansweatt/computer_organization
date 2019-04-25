@@ -154,7 +154,13 @@ unsigned int getIndexBits(unsigned int address);
  */
 unsigned int getOffsetBits(unsigned int address);
 
-void lruReplace(Line* l, int lineNum); // @TODO
+/**
+ * @brief 
+ * @param Line* l Line to replace in cache.
+ * @param int lineNum Current line number.
+ * @return int Replacement index.
+ */
+int lruReplace(Line* l, int lineNum);
 
 /**
  * @brief Cache a line.
@@ -358,7 +364,7 @@ unsigned int getOffsetBits(unsigned int address)
     return address >> (TAG_BITS+INDEX_BITS);
 }
 
-void lruReplace(Line* l, int lineNum)
+int lruReplace(Line* l, int lineNum)
 {
     int setTarget = 0;
     int replacementSet = 0;
@@ -372,9 +378,14 @@ void lruReplace(Line* l, int lineNum)
         }
         setTarget += 1;
     }
-    printf("Tag %d replaced by tag %d (Address %d to %d)\n",getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address), getTagBits(l->address), CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address, l->address);
     CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].lastused = lineNum;
     CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address = l->address;
+    if(CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].dirty)
+    {
+        CACHE->memrefs += 1;
+    }
+    CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].dirty = 0;
+    return replacementSet;
 }
 
 void cacheLine(Line* l, int lineNum, char cachingMethod)
@@ -462,24 +473,52 @@ void cacheLine(Line* l, int lineNum, char cachingMethod)
         // Write Back Rules
         if(l->operation == 'R')
         {
-            if(hit > 0)
+            if(hit > -1)
             {
                 // Read Hit
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].lastused = lineNum;
             }
             else
             {
                 // Read Miss
+                CACHE->memrefs += 1;
+                if(freeSpace > -1)
+                {
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].lastused = lineNum;
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].address = l->address;
+                }
+                else
+                {
+                    // LRU Replacement
+                    lruReplace(l, lineNum);
+                }
             }
         }
         else if(l->operation == 'W')
         {
-            if(hit > 0)
+            if(hit > -1)
             {
                 // Write Hit
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].lastused = lineNum;
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].address = l->address;
+                CACHE->sets[getIndexBits(l->address)].blocks[hit].dirty = 1;
             }
             else
             {
                 // Write Miss
+                CACHE->memrefs += 1;
+                if(freeSpace > -1)
+                {
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].lastused = lineNum;
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].address = l->address;
+                    CACHE->sets[getIndexBits(l->address)].blocks[freeSpace].dirty = 1;
+                }
+                else
+                {
+                    // LRU Replacement
+                    int replacementSet = lruReplace(l, lineNum);
+                    CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].dirty = 1;
+                }
             }
         }
     }
