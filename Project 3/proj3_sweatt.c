@@ -542,7 +542,7 @@ void simulate(char cachingMethod)
 
 void printHeader(void)
 {
-    printf("Block Size: %d\nNumber of Sets: %d\nSet Associativity: %d\n", BLOCK_SIZE, NUM_SETS, SET_ASSOCIATIVITY);
+    printf("Block size: %d\nNumber of sets: %d\nAssociativity: %d\n", BLOCK_SIZE, NUM_SETS, SET_ASSOCIATIVITY);
     printf("Number of offset bits: %d\nNumber of index bits: %d\nNumber of tag bits: %d\n", OFFSET_BITS, INDEX_BITS, TAG_BITS);
 }
 
