@@ -13,7 +13,7 @@
 /*----------------------------------*
  *             CONFIG               *
  *----------------------------------*/
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #define MAX_LINES 100
 
 /*----------------------------------*
@@ -157,10 +157,11 @@ unsigned int getOffsetBits(unsigned int address);
 /**
  * @brief Cache a line.
  * @param Line* l Line to add to the cache.
+ * @param int lineNum Line number to cache.
  * @param cachingMethod char Method of caching to use, Write (B)ack or Write (T)hrough.
  * @return void
  */
-void cacheLine(Line* l, char cachingMethod);
+void cacheLine(Line* l, int lineNum ,char cachingMethod);
 
 /**
  * @brief Simulate caching instructions using a particualr method.
@@ -355,7 +356,7 @@ unsigned int getOffsetBits(unsigned int address)
     return address >> (TAG_BITS+INDEX_BITS);
 }
 
-void cacheLine(Line* l, char cachingMethod)
+void cacheLine(Line* l, int lineNum, char cachingMethod)
 {
     CACHE->cacheReferences += 1;
 
@@ -365,6 +366,7 @@ void cacheLine(Line* l, char cachingMethod)
     {
         if(getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address) == getTagBits(l->address))
         {
+            CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
             // Hit (Block Tag Exists)
             if(cachingMethod == 'T')
             {
@@ -386,10 +388,11 @@ void cacheLine(Line* l, char cachingMethod)
                 }
                 else if(l->operation == 'W')
                 {
-                    
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].dirty = 1;
                 }
             }
-            CACHE->hits += 1; // @todo this does not mean a hit happened, check policy
+            CACHE->hits += 1;
             return;
         }
         setTarget += 1;
@@ -408,6 +411,7 @@ void cacheLine(Line* l, char cachingMethod)
                 if(l->operation == 'R')
                 {
                     CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
                     CACHE->memrefs += 1;
                 }
                 else if(l->operation == 'W')
@@ -419,11 +423,16 @@ void cacheLine(Line* l, char cachingMethod)
             {
                 if(l->operation == 'R')
                 {
-                    
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
+                    CACHE->memrefs += 1;
                 }
                 else if(l->operation == 'W')
                 {
-
+                    CACHE->memrefs += 1;
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].address = l->address;
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused = lineNum;
+                    CACHE->sets[getIndexBits(l->address)].blocks[setTarget].dirty = 1;
                 }
             }
             return;
@@ -432,8 +441,30 @@ void cacheLine(Line* l, char cachingMethod)
         setTarget += 1;
     }
 
-    // No Update, No Empty Space, Implement Replacement Strategy
-    // @todo
+    // No Update, No Empty Space, Implement LRU Replacement Strategy
+    setTarget = 0;
+    int replacementSet = 0;
+    int lru = CACHE->sets[getIndexBits(l->address)].blocks[0].lastused;
+    while(setTarget < SET_ASSOCIATIVITY)
+    {
+        if(CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused < lru)
+        {
+            lru = CACHE->sets[getIndexBits(l->address)].blocks[setTarget].lastused;
+            replacementSet = setTarget;
+        }
+        setTarget += 1;
+    }
+    printf("Tag %d replaced by tag %d (Address %d to %d)\n",getTagBits(CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address), getTagBits(l->address), CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address, l->address);
+    CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].lastused = lineNum;
+    if(l->operation == 'R')
+    {   
+        CACHE->memrefs += 1;
+        CACHE->sets[getIndexBits(l->address)].blocks[replacementSet].address = l->address;
+    }
+    else if(l->operation == 'W')
+    {
+        CACHE->memrefs += 1;
+    }
 }
 
 void simulate(char cachingMethod)
@@ -443,16 +474,13 @@ void simulate(char cachingMethod)
     {
         if(cachingMethod == 'T')
         {
-            cacheLine(&LINE_LIST->lines[i], cachingMethod);
+            cacheLine(&LINE_LIST->lines[i], i+1, cachingMethod);
         }
         else if(cachingMethod == 'B')
         {
-            cacheLine(&LINE_LIST->lines[i], cachingMethod);
+            cacheLine(&LINE_LIST->lines[i], i+1, cachingMethod);
         }
     }
-
-    // [Debug]: Print Cache
-    if(DEBUG_MODE){printCache();}
 }
 
 void printHeader(void)
@@ -486,7 +514,7 @@ void printCache(void)
         int j;
         for(j = 0; j < SET_ASSOCIATIVITY; j++)
         {
-            printf("%d ", CACHE->sets[i].blocks[j].address);
+            printf("%d[%d] ", CACHE->sets[i].blocks[j].address, CACHE->sets[i].blocks[j].lastused);
         }
         printf("\n");
     }
@@ -523,18 +551,12 @@ int main()
     // Parse Input
     parseInput();
 
-    // [Debug]: Print Parsed address
-    if(DEBUG_MODE){printInput();}
-
     // Create Cache
     initCache();
 
     // Calculate & Print Common/Shared Cache Information
     calculateAddressBits();
     printHeader();
-
-    // [Debug]: Print Translated Lines
-    if(DEBUG_MODE){printTranslatedLines();}
 
     // Execute Write-Through, No-Write-Allocate Caching Patterns
     simulate('T');
